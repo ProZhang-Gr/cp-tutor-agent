@@ -1,0 +1,156 @@
+[
+  {
+    "id": "P1001",
+    "title": "两数之和",
+    "type": "哈希表",
+    "tags": ["哈希", "数组", "查找"],
+    "difficulty": "入门",
+    "difficulty_score": 2,
+    "description": "给定一个整数数组 nums 和一个目标值 target，请在数组中找出和为目标值的两个整数的下标（从 0 开始）。\n\n输入格式：第一行两个整数 n 和 target；第二行 n 个整数表示 nums。\n输出格式：两个下标，空格分隔，较小者在前。保证有唯一解。",
+    "sample_input": "4 9\n2 7 11 15",
+    "sample_output": "0 1"
+  },
+  {
+    "id": "P1002",
+    "title": "斐波那契数列",
+    "type": "动态规划",
+    "tags": ["递推", "DP", "数学"],
+    "difficulty": "入门",
+    "difficulty_score": 2,
+    "description": "求斐波那契数列第 n 项，F(0)=0，F(1)=1，F(n)=F(n-1)+F(n-2)。结果对 1000000007 取模。\n\n输入格式：一个整数 n (0<=n<=1000000)。\n输出格式：F(n) mod 1000000007。",
+    "sample_input": "10",
+    "sample_output": "55"
+  },
+  {
+    "id": "P1003",
+    "title": "最长递增子序列",
+    "type": "动态规划",
+    "tags": ["LIS", "DP", "二分"],
+    "difficulty": "中等",
+    "difficulty_score": 5,
+    "description": "给定长度为 n 的整数序列，求最长严格递增子序列的长度。要求 O(n log n)。\n\n输入格式：第一行整数 n；第二行 n 个整数。\n输出格式：最长递增子序列长度。",
+    "sample_input": "8\n10 9 2 5 3 7 101 18",
+    "sample_output": "4"
+  },
+  {
+    "id": "P1004",
+    "title": "0-1 背包问题",
+    "type": "动态规划",
+    "tags": ["背包", "DP", "组合优化"],
+    "difficulty": "中等",
+    "difficulty_score": 5,
+    "description": "有 n 件物品和容量为 W 的背包，第 i 件物品体积 w[i]、价值 v[i]，每件最多取一次。求不超过容量时的最大总价值。\n\n输入格式：第一行 n 和 W；接下来 n 行每行两个整数 w[i] v[i]。\n输出格式：最大总价值。",
+    "sample_input": "3 4\n1 15\n3 20\n4 30",
+    "sample_output": "35"
+  },
+  {
+    "id": "P1005",
+    "title": "区间合并",
+    "type": "贪心",
+    "tags": ["排序", "贪心", "区间"],
+    "difficulty": "简单",
+    "difficulty_score": 4,
+    "description": "给定 n 个区间 [l, r]，合并所有重叠区间，输出合并后的区间个数。\n\n输入格式：第一行整数 n；接下来 n 行每行两个整数 l r。\n输出格式：合并后区间个数。",
+    "sample_input": "4\n1 3\n2 6\n8 10\n15 18",
+    "sample_output": "3"
+  },
+  {
+    "id": "P1006",
+    "title": "二分查找猜数",
+    "type": "二分",
+    "tags": ["二分", "查找"],
+    "difficulty": "入门",
+    "difficulty_score": 2,
+    "description": "在有序数组中查找目标值 target 第一次出现的下标（从 0 开始），不存在输出 -1。\n\n输入格式：第一行 n 和 target；第二行 n 个非降序整数。\n输出格式：下标或 -1。",
+    "sample_input": "5 3\n1 2 3 3 5",
+    "sample_output": "2"
+  },
+  {
+    "id": "P1007",
+    "title": "单源最短路 (Dijkstra)",
+    "type": "图论",
+    "tags": ["最短路", "Dijkstra", "堆"],
+    "difficulty": "中等",
+    "difficulty_score": 6,
+    "description": "给定 n 个点 m 条带权有向边的图，求从起点 1 到点 n 的最短路长度，不可达输出 -1。边权非负。\n\n输入格式：第一行 n m；接下来 m 行每行 u v w 表示一条 u->v 权重 w 的边。\n输出格式：1 到 n 的最短距离。",
+    "sample_input": "4 4\n1 2 1\n2 3 2\n1 3 4\n3 4 1",
+    "sample_output": "4"
+  },
+  {
+    "id": "P1008",
+    "title": "并查集连通块",
+    "type": "数据结构",
+    "tags": ["并查集", "连通性"],
+    "difficulty": "简单",
+    "difficulty_score": 4,
+    "description": "n 个节点，m 次合并操作，求最终连通块的数量。\n\n输入格式：第一行 n m；接下来 m 行每行 a b 表示连接 a 和 b。\n输出格式：连通块数量。",
+    "sample_input": "5 3\n1 2\n2 3\n4 5",
+    "sample_output": "2"
+  },
+  {
+    "id": "P1009",
+    "title": "最大子段和",
+    "type": "动态规划",
+    "tags": ["DP", "前缀和", "Kadane"],
+    "difficulty": "简单",
+    "difficulty_score": 3,
+    "description": "给定整数序列，求连续子段的最大和（子段非空）。\n\n输入格式：第一行整数 n；第二行 n 个整数。\n输出格式：最大连续子段和。",
+    "sample_input": "9\n-2 1 -3 4 -1 2 1 -5 4",
+    "sample_output": "6"
+  },
+  {
+    "id": "P1010",
+    "title": "括号匹配",
+    "type": "数据结构",
+    "tags": ["栈", "字符串", "模拟"],
+    "difficulty": "入门",
+    "difficulty_score": 2,
+    "description": "给定只含 ()[]{} 的字符串，判断括号是否合法匹配，合法输出 YES，否则 NO。\n\n输入格式：一行字符串。\n输出格式：YES 或 NO。",
+    "sample_input": "([]{})",
+    "sample_output": "YES"
+  },
+  {
+    "id": "P1011",
+    "title": "全排列生成",
+    "type": "搜索",
+    "tags": ["回溯", "DFS", "排列"],
+    "difficulty": "简单",
+    "difficulty_score": 3,
+    "description": "输出 1 到 n 的所有全排列，按字典序，每个排列一行，数字空格分隔。\n\n输入格式：一个整数 n (1<=n<=8)。\n输出格式：所有排列。",
+    "sample_input": "3",
+    "sample_output": "1 2 3\n1 3 2\n2 1 3\n2 3 1\n3 1 2\n3 2 1"
+  },
+  {
+    "id": "P1012",
+    "title": "字符串最长回文子串",
+    "type": "字符串",
+    "tags": ["回文", "DP", "中心扩展"],
+    "difficulty": "中等",
+    "difficulty_score": 5,
+    "description": "给定字符串 s，求其最长回文子串的长度。\n\n输入格式：一行字符串 s（仅小写字母）。\n输出格式：最长回文子串长度。",
+    "sample_input": "babad",
+    "sample_output": "3"
+  },
+  {
+    "id": "P1013",
+    "title": "快速幂",
+    "type": "数学",
+    "tags": ["快速幂", "数论", "取模"],
+    "difficulty": "入门",
+    "difficulty_score": 3,
+    "description": "计算 a^b mod p。\n\n输入格式：一行三个整数 a b p (0<=a,b<=1e9, 1<=p<=1e9)。\n输出格式：a^b mod p。",
+    "sample_input": "2 10 1000",
+    "sample_output": "24"
+  },
+  {
+    "id": "P1014",
+    "title": "滑动窗口最大值",
+    "type": "数据结构",
+    "tags": ["单调队列", "滑动窗口"],
+    "difficulty": "困难",
+    "difficulty_score": 7,
+    "description": "给定数组和窗口大小 k，输出每个长度为 k 的窗口中的最大值。\n\n输入格式：第一行 n k；第二行 n 个整数。\n输出格式：一行，每个窗口最大值，空格分隔。",
+    "sample_input": "8 3\n1 3 -1 -3 5 3 6 7",
+    "sample_output": "3 3 5 5 6 7"
+  }
+]

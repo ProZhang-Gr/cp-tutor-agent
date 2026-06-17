@@ -1,0 +1,18 @@
+# 密钥：绝不进仓库
+.deepseek_key
+.env
+
+# 运行时数据
+data/progress.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 杂项
+.DS_Store
+*.log
+_smoke_client.py

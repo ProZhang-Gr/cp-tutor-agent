@@ -1,0 +1,8 @@
+.deepseek_key
+.env
+.git
+__pycache__
+*.pyc
+data/progress.db
+_smoke_client.py
+*.log
