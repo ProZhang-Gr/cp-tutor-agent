@@ -26,6 +26,16 @@ progress.init_db()
 COOKIE = "arena_session"
 
 
+@app.middleware("http")
+async def no_cache_assets(request, call_next):
+    """让浏览器每次都向服务器校验前端资源，避免改版后用到旧缓存导致布局错乱。"""
+    resp = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.endswith((".css", ".js", ".html")):
+        resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return resp
+
+
 def sse(obj):
     """格式化为一条 SSE 消息。"""
     return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
