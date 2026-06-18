@@ -9,13 +9,13 @@ RAG 题库、代码沙箱与学习进度，并托管前端静态页面。
 import json
 import os
 
-from fastapi import Cookie, FastAPI, Response
+from fastapi import Cookie, FastAPI, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from config import settings
-from core import agents, auth, profile, progress, sandbox
+from core import agents, auth, guard, profile, progress, sandbox
 from core.llm import get_llm
 from core.rag import get_bank
 from core.workflow import run_analysis_stream, run_eval_stream
@@ -60,6 +60,19 @@ def sse(obj):
 def _uid(session):
     """从登录 Cookie 解出用户 id；游客返回 None。"""
     return auth.parse_token(session) if session else None
+
+
+def _ip(request):
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
+def _abuse_block(request, uid, endpoint):
+    """限流/配额守门：放行返回 None，拦截返回 429 响应。"""
+    ok, msg = guard.check_and_log(_ip(request), uid, endpoint)
+    return None if ok else JSONResponse({"error": msg}, status_code=429)
 
 
 # ------------------------- 请求模型 -------------------------
@@ -189,7 +202,13 @@ def save_problem(req: SaveProblemReq, arena_session: str = Cookie(default=None))
 
 # ------------------------- 分析流（SSE） -------------------------
 @app.post("/api/analyze")
-def analyze(req: AnalyzeReq):
+def analyze(req: AnalyzeReq, request: Request, arena_session: str = Cookie(default=None)):
+    if len(req.problem) > settings.MAX_PROBLEM_CHARS:
+        return JSONResponse({"error": "题面过长（上限 %d 字）" % settings.MAX_PROBLEM_CHARS}, status_code=400)
+    blocked = _abuse_block(request, _uid(arena_session), "analyze")
+    if blocked:
+        return blocked
+
     def gen():
         yield sse({"event": "start", "pipeline": ["retrieve", "analyze", "plan"]})
         try:
@@ -203,8 +222,13 @@ def analyze(req: AnalyzeReq):
 
 # ------------------------- 评测流（SSE） -------------------------
 @app.post("/api/evaluate")
-def evaluate(req: EvaluateReq, arena_session: str = Cookie(default=None)):
+def evaluate(req: EvaluateReq, request: Request, arena_session: str = Cookie(default=None)):
     uid = _uid(arena_session)
+    if len(req.problem) > settings.MAX_PROBLEM_CHARS or len(req.code) > settings.MAX_CODE_CHARS:
+        return JSONResponse({"error": "题面或代码过长"}, status_code=400)
+    blocked = _abuse_block(request, uid, "evaluate")
+    if blocked:
+        return blocked
 
     def gen():
         yield sse({"event": "start",
@@ -241,8 +265,14 @@ def evaluate(req: EvaluateReq, arena_session: str = Cookie(default=None)):
 
 # ------------------------- 苏格拉底提示（SSE 流式 token） -------------------------
 @app.post("/api/hint")
-def hint(req: HintReq, arena_session: str = Cookie(default=None)):
-    directive = profile.build_directive(_uid(arena_session))
+def hint(req: HintReq, request: Request, arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+    if len(req.problem) > settings.MAX_PROBLEM_CHARS:
+        return JSONResponse({"error": "题面过长"}, status_code=400)
+    blocked = _abuse_block(request, uid, "hint")
+    if blocked:
+        return blocked
+    directive = profile.build_directive(uid)
 
     def gen():
         yield sse({"event": "start", "hint_level": req.hint_level})
@@ -266,13 +296,21 @@ CHAT_SYS = (
     "当学生询问某个技术点、算法概念或原理（如「什么是动态规划」「Dijkstra 为什么要用堆」），"
     "请热情、清晰、有条理地讲解，可举例、可类比，并欢迎他继续追问、闲聊式地深入这个话题。"
     "只有当学生是在求解某道具体题目、且还没认真思考就想直接要完整答案时，才先点拨思路、鼓励其尝试，不和盘托出。"
+    "你只讨论编程、算法、计算机科学相关话题；若用户问与此无关的内容（闲聊八卦、其他学科、"
+    "或想把你当通用写作/翻译工具），请礼貌婉拒并把话题引回算法学习，不要展开作答。"
     "用中文回答，语气亲切自然。"
 )
 
 
 @app.post("/api/chat")
-def chat(req: ChatReq, arena_session: str = Cookie(default=None)):
-    directive = profile.build_directive(_uid(arena_session))
+def chat(req: ChatReq, request: Request, arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+    if len(req.question) > settings.MAX_QUESTION_CHARS or len(req.code) > settings.MAX_CODE_CHARS:
+        return JSONResponse({"error": "输入过长"}, status_code=400)
+    blocked = _abuse_block(request, uid, "chat")
+    if blocked:
+        return blocked
+    directive = profile.build_directive(uid)
 
     def gen():
         yield sse({"event": "start"})

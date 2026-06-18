@@ -45,5 +45,13 @@ class Settings:
     # 沙箱
     SANDBOX_TIMEOUT = 6  # 单个测试用例超时（秒）
 
+    # 防滥用
+    RATE_PER_MIN = 20          # 每 IP 每分钟请求上限
+    QUOTA_GUEST = 30           # 游客每日 LLM 调用上限
+    QUOTA_USER = 100           # 登录(普通)用户每日上限；Pro 在 Phase3 放开
+    MAX_PROBLEM_CHARS = 8000   # 题面长度上限
+    MAX_CODE_CHARS = 20000     # 代码长度上限
+    MAX_QUESTION_CHARS = 2000  # 提问长度上限
+
 
 settings = Settings()

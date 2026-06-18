@@ -42,6 +42,19 @@ class Submission(Base):
     error_kind: Mapped[str | None] = mapped_column(String(20))
 
 
+class AuditLog(Base):
+    """每次 LLM 调用的审计记录：用于监察、限流配额统计与每日报告。"""
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ts: Mapped[float] = mapped_column(Float, default=time.time, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    ip: Mapped[str | None] = mapped_column(String(64), index=True)
+    endpoint: Mapped[str | None] = mapped_column(String(40))
+    tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    meta: Mapped[str | None] = mapped_column(String(300), nullable=True)
+
+
 class UserProblem(Base):
     __tablename__ = "user_problems"
 
