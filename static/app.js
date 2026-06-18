@@ -15,6 +15,7 @@ let charts = {};              // Chart.js 实例缓存
 let pendingSelection = "";     // 当前引用的选中代码片段
 let pendingSimilar = [];       // 检索到的相似题（待确认是有效题目后再渲染）
 let analysisStale = true;      // 当前题目是否尚未分析 / 分析已过期
+let currentProblemId = "";     // 当前题目在题单中的 id（题库 P..../ 自建 U....），空=未入库的新题
 
 // 已明确判定「当前题面不是算法题」（且分析未过期）
 function isKnownNonProblem() {
@@ -199,7 +200,28 @@ async function runAnalyze() {
         renderStrategies(ev.data.strategies);
       }
     });
-    toast(currentAnalysis.is_problem === false ? "这看起来不是一道算法题" : "✅ 分析完成");
+    // 有效新题 → 用分析师起的标题自动命名、纳入「我的题目」
+    if (currentAnalysis.is_problem !== false && !currentProblemId) {
+      try {
+        const r = await fetch("/api/save-problem", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: currentAnalysis.title || "未命名题目",
+            type: currentAnalysis.type || "其他",
+            difficulty: currentAnalysis.difficulty || "未知",
+            description: problem,
+          }),
+        }).then(r => r.json());
+        if (r.id) {
+          currentProblemId = r.id;
+          await loadProblemList();
+          $("#problem-select").value = r.id;
+          toast("📌 已加入「我的题目」：" + (currentAnalysis.title || ""));
+        }
+      } catch (e) {}
+    } else {
+      toast(currentAnalysis.is_problem === false ? "这看起来不是一道算法题" : "✅ 分析完成");
+    }
   } catch (e) { toast("请求失败：" + e.message); }
   finally { btn.disabled = false; btn.textContent = "🚀 启动智能体分析"; }
 }
@@ -300,6 +322,7 @@ async function submitCode() {
     const meta = analysisStale ? {} : currentAnalysis;   // 题面改过则不沿用旧分析的标签
     await sseStream("/api/evaluate", {
       problem, code, language: $("#lang-select").value,
+      problem_id: currentProblemId,
       problem_title: meta.title || "未命名",
       problem_type: meta.type || "其他",
       difficulty: meta.difficulty || "未知",
@@ -352,6 +375,7 @@ function renderVerdict(s) {
     addHintEntry("审查师建议", reviewData.next_step + (reviewData.bugs.length ?
       "\n\n主要问题：" + reviewData.bugs.map(b => `[${b.severity}] ${b.issue}`).join("；") : ""));
   }
+  if (pass && currentProblemId) { toast("🎉 已通过，已在题单标记"); loadProblemList(); }
 }
 
 /* ---------------- 苏格拉底提示流 ---------------- */
@@ -435,9 +459,23 @@ function addMsg(role, text) {
 
 /* ---------------- 题库 ---------------- */
 async function loadProblemList() {
-  const list = await fetch("/api/problems").then(r => r.json());
-  $("#problem-select").innerHTML = '<option value="">— 从题库选择 —</option>' +
-    list.map(p => `<option value="${p.id}">${p.title}（${p.difficulty}·${p.type}）</option>`).join("");
+  const [bank, mine, solvedResp] = await Promise.all([
+    fetch("/api/problems").then(r => r.json()),
+    fetch("/api/my-problems").then(r => r.json()).catch(() => []),
+    fetch("/api/solved").then(r => r.json()).catch(() => ({ solved: [] })),
+  ]);
+  const solved = new Set(solvedResp.solved || []);
+  const opt = (p) => {
+    const ok = solved.has(p.id) ? "✓ " : "";
+    return `<option value="${p.id}">${ok}${esc(p.title)}（${esc(p.difficulty)}·${esc(p.type)}）</option>`;
+  };
+  let html = '<option value="">— 从题库选择 —</option>';
+  html += `<optgroup label="题库">${bank.map(opt).join("")}</optgroup>`;
+  if (mine && mine.length)
+    html += `<optgroup label="我的题目">${mine.map(opt).join("")}</optgroup>`;
+  const cur = $("#problem-select").value;
+  $("#problem-select").innerHTML = html;
+  if (cur) $("#problem-select").value = cur;     // 刷新后保留当前选择
 }
 async function loadProblem(pid) {
   if (!pid) return;
@@ -447,8 +485,9 @@ async function loadProblem(pid) {
   if (p.sample_input) text += `\n\n样例输入：\n${p.sample_input}\n\n样例输出：\n${p.sample_output}`;
   $("#problem-input").value = text;
   localStorage.setItem("cp_problem", text);
-  $("#problem-select").value = pid;
   resetAnalysisState();          // 换题 → 旧分析/提示作废
+  currentProblemId = pid;        // 记住当前题目 id（用于 AC 标记）
+  $("#problem-select").value = pid;
   toast("已载入：" + p.title);
 }
 
@@ -580,6 +619,7 @@ function initPersistence() {
   let t;
   inp.addEventListener("input", () => {
     analysisStale = true;        // 题面改了 → 之前的分析判定作废
+    currentProblemId = "";       // 手动改题 → 视为新题（待分析后入库）
     clearTimeout(t); t = setTimeout(() => localStorage.setItem("cp_problem", inp.value), 400);
   });
   // 记忆题目框被拖拽后的高度

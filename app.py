@@ -55,9 +55,17 @@ class EvaluateReq(BaseModel):
     problem: str
     code: str
     language: str = "python"
+    problem_id: str = ""
     problem_title: str = ""
     problem_type: str = "其他"
     difficulty: str = "未知"
+
+
+class SaveProblemReq(BaseModel):
+    title: str
+    type: str = "其他"
+    difficulty: str = "未知"
+    description: str
 
 
 class HintReq(BaseModel):
@@ -138,9 +146,29 @@ def list_problems():
 
 
 @app.get("/api/problems/{pid}")
-def get_problem(pid: str):
-    p = get_bank().get(pid)
+def get_problem(pid: str, arena_session: str = Cookie(default=None)):
+    if pid.startswith("U"):                       # 用户自建题
+        p = progress.get_user_problem(_uid(arena_session), pid)
+    else:
+        p = get_bank().get(pid)
     return p or JSONResponse({"error": "not found"}, status_code=404)
+
+
+@app.get("/api/my-problems")
+def my_problems(arena_session: str = Cookie(default=None)):
+    return progress.list_user_problems(_uid(arena_session))
+
+
+@app.get("/api/solved")
+def solved(arena_session: str = Cookie(default=None)):
+    return {"solved": progress.solved_problem_ids(_uid(arena_session))}
+
+
+@app.post("/api/save-problem")
+def save_problem(req: SaveProblemReq, arena_session: str = Cookie(default=None)):
+    pid = progress.add_user_problem(_uid(arena_session), req.title,
+                                    req.type, req.difficulty, req.description)
+    return {"id": pid}
 
 
 # ------------------------- 分析流（SSE） -------------------------
@@ -187,6 +215,7 @@ def evaluate(req: EvaluateReq, arena_session: str = Cookie(default=None)):
                     score=summary.get("final_score", 0),
                     error_kind=summary.get("error_kind", "AC"),
                     user_id=uid,
+                    problem_id=req.problem_id or None,
                 )
             yield sse({"event": "done"})
         except Exception as e:

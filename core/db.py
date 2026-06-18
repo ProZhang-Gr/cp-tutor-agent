@@ -78,6 +78,7 @@ def init_schema():
         id %s,
         user_id INTEGER,
         ts %s,
+        problem_id    TEXT,
         problem_title TEXT,
         problem_type  TEXT,
         difficulty    TEXT,
@@ -86,4 +87,13 @@ def init_schema():
         tests_total  INTEGER,
         score        INTEGER,
         error_kind   TEXT
+    )""" % (idtype, real))
+    execute("""CREATE TABLE IF NOT EXISTS user_problems (
+        id %s,
+        user_id INTEGER,
+        title       TEXT,
+        type        TEXT,
+        difficulty  TEXT,
+        description TEXT,
+        created_at  %s
     )""" % (idtype, real))

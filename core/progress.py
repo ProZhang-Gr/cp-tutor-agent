@@ -14,13 +14,68 @@ def init_db():
 
 
 def record(problem_title, problem_type, difficulty, passed,
-           tests_passed, tests_total, score, error_kind, user_id=None):
+           tests_passed, tests_total, score, error_kind, user_id=None, problem_id=None):
     db.execute(
-        "INSERT INTO submissions (user_id, ts, problem_title, problem_type, difficulty, "
-        "passed, tests_passed, tests_total, score, error_kind) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        (user_id, time.time(), problem_title, problem_type, difficulty,
+        "INSERT INTO submissions (user_id, ts, problem_id, problem_title, problem_type, difficulty, "
+        "passed, tests_passed, tests_total, score, error_kind) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (user_id, time.time(), problem_id, problem_title, problem_type, difficulty,
          1 if passed else 0, tests_passed, tests_total, score, error_kind),
     )
+
+
+def solved_problem_ids(user_id):
+    """该用户已 AC（全部通过）的题目 id 列表（含题库题与自建题）。"""
+    if user_id is None:
+        rows = db.query("SELECT DISTINCT problem_id FROM submissions "
+                        "WHERE user_id IS NULL AND passed=1 AND problem_id IS NOT NULL")
+    else:
+        rows = db.query("SELECT DISTINCT problem_id FROM submissions "
+                        "WHERE user_id=? AND passed=1 AND problem_id IS NOT NULL", (user_id,))
+    return [r["problem_id"] for r in rows]
+
+
+def add_user_problem(user_id, title, ptype, difficulty, description):
+    """把用户自建题纳入题单（同用户同标题去重），返回形如 'U3' 的 id。"""
+    if user_id is None:
+        ex = db.query_one("SELECT id FROM user_problems WHERE user_id IS NULL AND title=?", (title,))
+    else:
+        ex = db.query_one("SELECT id FROM user_problems WHERE user_id=? AND title=?", (user_id, title))
+    if ex:
+        return "U%d" % ex["id"]
+    db.execute("INSERT INTO user_problems (user_id, title, type, difficulty, description, created_at) "
+               "VALUES (?,?,?,?,?,?)", (user_id, title, ptype, difficulty, description, time.time()))
+    if user_id is None:
+        r = db.query_one("SELECT id FROM user_problems WHERE user_id IS NULL AND title=? ORDER BY id DESC", (title,))
+    else:
+        r = db.query_one("SELECT id FROM user_problems WHERE user_id=? AND title=? ORDER BY id DESC", (user_id, title))
+    return "U%d" % r["id"] if r else None
+
+
+def list_user_problems(user_id):
+    if user_id is None:
+        rows = db.query("SELECT id, title, type, difficulty FROM user_problems "
+                        "WHERE user_id IS NULL ORDER BY id DESC")
+    else:
+        rows = db.query("SELECT id, title, type, difficulty FROM user_problems "
+                        "WHERE user_id=? ORDER BY id DESC", (user_id,))
+    return [{"id": "U%d" % r["id"], "title": r["title"],
+             "type": r["type"] or "其他", "difficulty": r["difficulty"] or "未知"} for r in rows]
+
+
+def get_user_problem(user_id, pid):
+    """按 'U3' 取回用户自建题完整信息。"""
+    try:
+        rid = int(str(pid)[1:])
+    except (ValueError, IndexError):
+        return None
+    if user_id is None:
+        r = db.query_one("SELECT * FROM user_problems WHERE id=? AND user_id IS NULL", (rid,))
+    else:
+        r = db.query_one("SELECT * FROM user_problems WHERE id=? AND user_id=?", (rid, user_id))
+    if not r:
+        return None
+    return {"id": "U%d" % r["id"], "title": r["title"], "type": r["type"],
+            "difficulty": r["difficulty"], "description": r["description"]}
 
 
 def _rows_for(user_id):
