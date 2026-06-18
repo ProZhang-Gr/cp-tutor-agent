@@ -422,16 +422,8 @@ function copyCode() {
 const MIN_W = 220, MAX_W = 560;
 function setCollapsed(side, on) {
   const ws = $("#workspace");
-  ws.classList.toggle(side + "-collapsed", on);
+  ws.classList.toggle(side + "-collapsed", on);   // Flex 下 display:none 即可，中间自动占满
   localStorage.setItem(side === "left" ? "cp_lc" : "cp_rc", on ? "1" : "0");
-  // 直接改行内变量：折叠归零，展开恢复保存的宽度（行内样式优先级高于类，必须这样写）
-  const v = side === "left" ? "--left-w" : "--right-w";
-  if (on) {
-    ws.style.setProperty(v, "0px");
-  } else {
-    const saved = localStorage.getItem(side === "left" ? "cp_lw" : "cp_rw");
-    ws.style.setProperty(v, (saved || (side === "left" ? "340" : "360")) + "px");
-  }
   const btn = document.querySelector(`.col-toggle[data-side="${side}"]`);
   if (btn) btn.textContent = side === "left" ? (on ? "›" : "‹") : (on ? "‹" : "›");
 }

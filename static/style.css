@@ -54,16 +54,17 @@ body{
 /* ===================== 视图 ===================== */
 .view{display:none;height:calc(100vh - 66px);overflow:hidden;position:relative;z-index:2}
 .view.active{display:block}
-.workspace{display:grid;
-  grid-template-columns:var(--left-w,340px) 14px minmax(0,1fr) 14px var(--right-w,360px);
-  gap:0;padding:18px;height:100%}
-.workspace.left-collapsed{--left-w:0px}
-.workspace.right-collapsed{--right-w:0px}
-.workspace.left-collapsed #col-left,.workspace.right-collapsed #col-right{display:none}
+.workspace{display:flex;gap:0;padding:18px;height:100%}
 .col{display:flex;flex-direction:column;min-height:0}
+/* 两侧定宽（可拖动改变），中间永远吃满剩余空间 */
+.col-left{flex:0 0 var(--left-w,340px)}
+.col-right{flex:0 0 var(--right-w,360px)}
+.col-center{flex:1 1 0;min-width:0}
+/* 折叠：直接移出布局流，中间自动占满 */
+.workspace.left-collapsed #col-left,.workspace.right-collapsed #col-right{display:none}
 
 /* 拖动把手 + 折叠按钮 */
-.gutter{position:relative;display:flex;align-items:center;justify-content:center;cursor:col-resize;user-select:none}
+.gutter{flex:0 0 14px;position:relative;display:flex;align-items:center;justify-content:center;cursor:col-resize;user-select:none}
 .gutter::before{content:"";width:2px;height:96%;background:var(--line);border-radius:2px;transition:.15s}
 .gutter:hover::before{background:var(--accent);width:3px}
 .col-toggle{position:absolute;z-index:6;width:18px;height:46px;border:1px solid var(--line);
