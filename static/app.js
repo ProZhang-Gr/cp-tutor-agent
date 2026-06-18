@@ -14,6 +14,22 @@ let chatHistory = [];         // 对话历史
 let charts = {};              // Chart.js 实例缓存
 let pendingSelection = "";     // 当前引用的选中代码片段
 let pendingSimilar = [];       // 检索到的相似题（待确认是有效题目后再渲染）
+let analysisStale = true;      // 当前题目是否尚未分析 / 分析已过期
+
+// 已明确判定「当前题面不是算法题」（且分析未过期）
+function isKnownNonProblem() {
+  return !analysisStale && currentAnalysis.is_problem === false;
+}
+function nonProblemHint() {
+  toast("这不是一道算法题～点题目下方「💬 让导师解答」，或直接在右下角问导师");
+}
+function resetAnalysisState() {
+  currentAnalysis = {}; analysisStale = true;
+  $("#analysis-result").classList.add("hidden");
+  $("#strategies").classList.add("hidden");
+  hintLevel = 0; hintHistory = [];
+  $("#hint-level-num").textContent = "0"; $("#hint-box").innerHTML = "";
+}
 
 /* 智能体定义：node 名 -> 卡片 */
 const AGENTS = [
@@ -190,6 +206,7 @@ async function runAnalyze() {
 
 function renderAnalysis(a) {
   currentAnalysis = a || {};
+  analysisStale = false;      // 刚对当前题面做完分析
   $("#analysis-result").classList.remove("hidden");
   // 非有效题目：只给友好提示 + 转交导师的入口
   if (a && a.is_problem === false) {
@@ -218,6 +235,7 @@ function askTutorAbout() {
   if ($("#workspace").classList.contains("right-collapsed")) setCollapsed("right", false);
   $("#chat-input").value = text;
   sendChat();
+  $("#chat-log").scrollIntoView({ behavior: "smooth", block: "center" });
   toast("已转交导师解答");
 }
 function renderSimilar(list) {
@@ -268,6 +286,8 @@ async function submitCode() {
   const code = editor.getValue();
   const problem = $("#problem-input").value.trim();
   if (!problem) return toast("请先输入题目并分析");
+  if (isKnownNonProblem()) return nonProblemHint();
+  if (!code.trim()) return toast("请先在编辑器里写代码");
   const btn = $("#btn-submit");
   btn.disabled = true; btn.textContent = "⚙️ 评测中…";
   switchIO("result");
@@ -277,11 +297,12 @@ async function submitCode() {
   setAgent("review", "working");
 
   try {
+    const meta = analysisStale ? {} : currentAnalysis;   // 题面改过则不沿用旧分析的标签
     await sseStream("/api/evaluate", {
       problem, code, language: $("#lang-select").value,
-      problem_title: currentAnalysis.title || "未命名",
-      problem_type: currentAnalysis.type || "其他",
-      difficulty: currentAnalysis.difficulty || "未知",
+      problem_title: meta.title || "未命名",
+      problem_type: meta.type || "其他",
+      difficulty: meta.difficulty || "未知",
     }, (ev) => {
       if (ev.event === "node") {
         if (ev.node === "review") { setAgent("review", "done"); setAgent("test", "working"); renderReview(ev.data.review); }
@@ -337,6 +358,7 @@ function renderVerdict(s) {
 async function requestHint() {
   const problem = $("#problem-input").value.trim();
   if (!problem) return toast("请先输入题目");
+  if (isKnownNonProblem()) return nonProblemHint();
   if (hintLevel >= 4) return toast("已到最深提示层级");
   hintLevel++;
   $("#hint-level-num").textContent = hintLevel;
@@ -347,7 +369,7 @@ async function requestHint() {
   body.classList.add("cursor-blink");
   try {
     await sseStream("/api/hint", {
-      problem, analysis: currentAnalysis, question: "",
+      problem, analysis: analysisStale ? {} : currentAnalysis, question: "",
       hint_level: hintLevel, history: hintHistory.join("\n---\n"),
     }, (ev) => {
       if (ev.event === "token") { acc += ev.text; body.innerHTML = marked.parse(acc); }
@@ -426,6 +448,7 @@ async function loadProblem(pid) {
   $("#problem-input").value = text;
   localStorage.setItem("cp_problem", text);
   $("#problem-select").value = pid;
+  resetAnalysisState();          // 换题 → 旧分析/提示作废
   toast("已载入：" + p.title);
 }
 
@@ -556,6 +579,7 @@ function initPersistence() {
   if (savedH) inp.style.height = savedH + "px";
   let t;
   inp.addEventListener("input", () => {
+    analysisStale = true;        // 题面改了 → 之前的分析判定作废
     clearTimeout(t); t = setTimeout(() => localStorage.setItem("cp_problem", inp.value), 400);
   });
   // 记忆题目框被拖拽后的高度
