@@ -195,7 +195,24 @@ body.resizing *{cursor:col-resize!important;user-select:none}
   white-space:pre-wrap;max-height:120px;overflow:auto}
 
 /* ===================== 智能体团队 ===================== */
-.agent-team{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+/* 迷你状态条（常驻，可一眼看状态）+ 点击展开详情 */
+.team{margin-bottom:14px}
+.team-strip{width:100%;display:flex;align-items:center;gap:9px;background:var(--tint);
+  border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:9px 12px;cursor:pointer;
+  transition:.15s;font-family:inherit}
+.team-strip:hover{border-color:var(--accent)}
+.team-title{font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--ink);white-space:nowrap}
+.team-dots{display:flex;gap:4px;margin-left:auto;align-items:center}
+.team-dot{width:22px;height:22px;display:grid;place-items:center;font-size:12px;border-radius:6px;
+  background:var(--surface2);border:1px solid var(--line);filter:grayscale(.6);opacity:.55;transition:.2s}
+.team-dot.working{opacity:1;filter:none;border-color:var(--accent);animation:dotpulse 1s infinite}
+.team-dot.done{opacity:1;filter:none;border-color:rgba(60,139,87,.5);background:rgba(60,139,87,.12)}
+@keyframes dotpulse{0%,100%{box-shadow:0 0 0 1px var(--accent-tint)}50%{box-shadow:0 0 0 4px var(--accent-tint)}}
+.team-chevron{flex-shrink:0;color:var(--ink-mute);font-size:12px;transition:transform .2s}
+.team.open .team-chevron{transform:rotate(180deg)}
+
+.agent-team{display:none;flex-direction:column;gap:6px;margin-top:8px}
+.team.open .agent-team{display:flex}
 .agent{display:flex;align-items:center;gap:10px;padding:7px 11px;background:var(--tint);
   border:1px solid var(--line-soft);border-radius:var(--r-sm);position:relative;overflow:hidden;transition:.22s}
 .agent .a-icon{font-size:15px;width:30px;height:30px;display:grid;place-items:center;border-radius:var(--r-xs);

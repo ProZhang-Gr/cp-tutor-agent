@@ -34,17 +34,49 @@ function initAgentTeam() {
       <div class="a-info"><div class="a-name">${a.name}</div><div class="a-role">${a.role}</div></div>
       <div class="a-state">待命</div>
     </div>`).join("");
+  $("#team-dots").innerHTML = AGENTS.map(a =>
+    `<span class="team-dot" id="dot-${a.id}" title="${a.name}">${a.icon}</span>`).join("");
 }
 function setAgent(id, state) {
   const el = $(`#agent-${id}`);
-  if (!el) return;
-  el.classList.remove("working", "done");
-  const label = $(`#agent-${id} .a-state`);
-  if (state === "working") { el.classList.add("working"); label.textContent = "工作中"; }
-  else if (state === "done") { el.classList.add("done"); label.textContent = "完成 ✓"; }
-  else { label.textContent = "待命"; }
+  if (el) {
+    el.classList.remove("working", "done");
+    const label = $(`#agent-${id} .a-state`);
+    if (state === "working") { el.classList.add("working"); label.textContent = "工作中"; }
+    else if (state === "done") { el.classList.add("done"); label.textContent = "完成 ✓"; }
+    else { label.textContent = "待命"; }
+  }
+  const dot = $(`#dot-${id}`);
+  if (dot) {
+    dot.classList.remove("working", "done");
+    if (state === "working" || state === "done") dot.classList.add(state);
+  }
+  // 工作时自动展开秀协作（导师对话不打扰），结束后自动收起
+  if (state === "working" && id !== "tutor") openTeam();
+  if (state === "done") scheduleTeamAutoClose();
 }
 function resetAgents(ids) { ids.forEach(id => setAgent(id, "idle")); }
+
+/* ---- 智能体面板：迷你条 / 展开 ---- */
+let teamPinned = false, teamCloseTimer = null;
+function setTeamOpenClass(open) { $("#team").classList.toggle("open", open); }
+function openTeam() { clearTimeout(teamCloseTimer); setTeamOpenClass(true); }
+function scheduleTeamAutoClose() {
+  if (teamPinned) return;                       // 用户钉住则不自动收
+  clearTimeout(teamCloseTimer);
+  teamCloseTimer = setTimeout(() => {
+    const busy = AGENTS.some(a => {
+      const e = $(`#agent-${a.id}`); return e && e.classList.contains("working");
+    });
+    if (!busy) setTeamOpenClass(false);
+  }, 2500);
+}
+function toggleTeam() {
+  teamPinned = !$("#team").classList.contains("open");
+  localStorage.setItem("cp_team_open", teamPinned ? "1" : "0");
+  clearTimeout(teamCloseTimer);
+  setTeamOpenClass(teamPinned);
+}
 
 /* Monaco */
 require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs" } });
@@ -520,6 +552,7 @@ function bind() {
   $("#btn-chat").onclick = sendChat;
   $("#btn-quote").onclick = captureSelection;
   $("#quote-clear").onclick = clearQuote;
+  $("#team-strip").onclick = toggleTeam;
   $("#chat-input").onkeydown = (e) => { if (e.key === "Enter") sendChat(); };
   $("#problem-select").onchange = (e) => loadProblem(e.target.value);
   $$(".io-tab").forEach(t => t.onclick = () => switchIO(t.dataset.io));
@@ -609,6 +642,8 @@ function bindAuth() {
 
 /* ---------------- 启动 ---------------- */
 initAgentTeam();
+teamPinned = localStorage.getItem("cp_team_open") === "1";
+setTeamOpenClass(teamPinned);   // 默认收起为迷你状态条
 bind();
 bindAuth();
 initPanels();
