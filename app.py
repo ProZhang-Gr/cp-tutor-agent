@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from config import settings
-from core import agents, auth, billing, guard, profile, progress, sandbox
+from core import agents, auth, billing, guard, profile, progress, report, sandbox
 from core.llm import get_llm
 from core.rag import get_bank
 from core.workflow import run_analysis_stream, run_eval_stream
@@ -377,6 +377,44 @@ def run_code(req: RunReq):
 @app.get("/api/stats")
 def get_stats(arena_session: str = Cookie(default=None)):
     return progress.stats(_uid(arena_session))
+
+
+# ------------------------- 每日报告（Pro） -------------------------
+class ReportPdfReq(BaseModel):
+    date: str = ""
+    narrative: str = ""
+    stats: dict = {}
+
+
+def _pro_or_block(uid):
+    if uid is None:
+        return JSONResponse({"error": "请先登录"}, status_code=401)
+    if not billing.get_status(uid)["is_pro"]:
+        return JSONResponse({"error": "每日报告是 Pro 功能，充值即可解锁"}, status_code=403)
+    return None
+
+
+@app.get("/api/daily-report")
+def daily_report(arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+    block = _pro_or_block(uid)
+    if block:
+        return block
+    return report.build_report(uid)
+
+
+@app.post("/api/daily-report/pdf")
+def daily_report_pdf(req: ReportPdfReq, arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+    block = _pro_or_block(uid)
+    if block:
+        return block
+    user = auth.get_user_by_id(uid)
+    pdf = report.build_pdf(
+        {"date": req.date, "narrative": req.narrative, "stats": req.stats},
+        user["username"] if user else "")
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": "attachment; filename=arena_daily_report.pdf"})
 
 
 # ------------------------- 前端静态资源 -------------------------

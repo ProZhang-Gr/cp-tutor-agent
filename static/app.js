@@ -494,6 +494,39 @@ async function loadProblem(pid) {
   toast("已载入：" + p.title);
 }
 
+/* ---------------- 每日报告（Pro） ---------------- */
+let lastReport = null;
+async function genReport() {
+  const btn = $("#btn-gen-report"); btn.disabled = true; btn.textContent = "生成中…";
+  try {
+    const r = await fetch("/api/daily-report");
+    const data = await r.json();
+    if (!r.ok) { $("#report-body").innerHTML = `<span class="empty-hint">${esc(data.error || "生成失败")}</span>`; $("#btn-dl-report").classList.add("hidden"); return; }
+    lastReport = data;
+    const st = data.stats || {};
+    $("#report-body").innerHTML =
+      `<div class="r-stats">📅 ${esc(data.date)} ｜ 尝试 ${st.attempted} · 通过 ${st.ac} · AI互动 ${st.llm_calls} 次</div>` +
+      `<div class="r-narr">${marked.parse(data.narrative || "")}</div>`;
+    $("#btn-dl-report").classList.remove("hidden");
+  } catch (e) { toast("生成失败"); }
+  finally { btn.disabled = false; btn.textContent = "生成今日报告"; }
+}
+async function downloadReport() {
+  if (!lastReport) return;
+  try {
+    const r = await fetch("/api/daily-report/pdf", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: lastReport.date, narrative: lastReport.narrative, stats: lastReport.stats }),
+    });
+    if (!r.ok) return toast("下载失败");
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "ARENA学习日报_" + lastReport.date + ".pdf";
+    a.click(); URL.revokeObjectURL(url);
+  } catch (e) { toast("下载失败"); }
+}
+
 /* ---------------- 仪表盘 ---------------- */
 async function loadDashboard() {
   const s = await fetch("/api/stats").then(r => r.json());
@@ -647,6 +680,8 @@ function bind() {
   $("#quote-clear").onclick = clearQuote;
   $("#team-strip").onclick = toggleTeam;
   $("#btn-ask-tutor").onclick = askTutorAbout;
+  $("#btn-gen-report").onclick = genReport;
+  $("#btn-dl-report").onclick = downloadReport;
   $("#chat-input").onkeydown = (e) => { if (e.key === "Enter") sendChat(); };
   $("#problem-select").onchange = (e) => loadProblem(e.target.value);
   $$(".io-tab").forEach(t => t.onclick = () => switchIO(t.dataset.io));
