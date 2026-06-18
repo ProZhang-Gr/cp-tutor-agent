@@ -109,6 +109,9 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 
 /* ===================== 题目剖析 ===================== */
 .analysis,.strategies{animation:rise .4s}
+.analysis-notice{background:rgba(194,146,46,.09);border:1px solid rgba(194,146,46,.32);
+  border-radius:var(--r-sm);padding:14px;margin-top:4px;animation:rise .3s}
+.analysis-notice p{font-size:13px;line-height:1.65;color:var(--ink);margin-bottom:12px}
 .ana-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .badge{font-family:var(--font-body);font-size:12px;font-weight:600;padding:4px 11px;border-radius:20px}
 .badge-type{background:var(--accent);color:var(--accent-ink)}

@@ -54,16 +54,22 @@
 
       <div id="analysis-result" class="analysis hidden">
         <div class="sec-head sub"><span class="sec-no">02</span><h2>题目剖析</h2></div>
-        <div class="ana-head">
-          <span id="ana-type" class="badge badge-type">—</span>
-          <span id="ana-diff" class="badge badge-diff">—</span>
-          <span id="ana-stars" class="stars"></span>
+        <div id="analysis-notice" class="analysis-notice hidden">
+          <p id="analysis-notice-text"></p>
+          <button id="btn-ask-tutor" class="btn btn-accent btn-block">💬 让导师解答</button>
         </div>
-        <div class="ana-item"><label>目标复杂度</label><div id="ana-complexity" class="mono">—</div></div>
-        <div class="ana-item accent"><label>核心突破口</label><div id="ana-insight">—</div></div>
-        <div class="ana-block"><label>易错点</label><ul id="ana-pitfalls"></ul></div>
-        <div class="ana-block"><label>知识点</label><div id="ana-knowledge" class="chips"></div></div>
-        <div class="ana-block"><label>相似题 · 举一反三</label><div id="ana-similar" class="chips"></div></div>
+        <div id="analysis-body">
+          <div class="ana-head">
+            <span id="ana-type" class="badge badge-type">—</span>
+            <span id="ana-diff" class="badge badge-diff">—</span>
+            <span id="ana-stars" class="stars"></span>
+          </div>
+          <div class="ana-item"><label>目标复杂度</label><div id="ana-complexity" class="mono">—</div></div>
+          <div class="ana-item accent"><label>核心突破口</label><div id="ana-insight">—</div></div>
+          <div class="ana-block"><label>易错点</label><ul id="ana-pitfalls"></ul></div>
+          <div class="ana-block"><label>知识点</label><div id="ana-knowledge" class="chips"></div></div>
+          <div class="ana-block"><label>相似题 · 举一反三</label><div id="ana-similar" class="chips"></div></div>
+        </div>
       </div>
 
       <div id="strategies" class="strategies hidden">

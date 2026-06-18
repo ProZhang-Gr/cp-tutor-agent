@@ -20,10 +20,19 @@ from core.llm import get_json_llm, get_llm, parse_json
 # 1. 题目分析师
 # --------------------------------------------------------------------------
 ANALYZER_SYS = """你是一名 ACM/ICPC 金牌教练，专精算法竞赛题目分析。
-给定一道题，你要快速、准确地拆解它的本质。
+
+【第一步：先判断输入是不是一道有效的算法/编程题】
+有效题目通常含明确的问题描述，常带输入输出要求、数据范围或样例。
+若输入并非算法题——例如闲聊、只是问某个名词概念、无意义或残缺到无法理解的文本——
+请将 is_problem 置为 false，并在 message 里用一句友好的话引导用户
+（例如：「这看起来不像一道完整的算法题，请粘贴含输入输出/样例的题面，或到右侧『导师对话』直接提问～」）。
+此时其余分析字段可填占位值，不必硬凑。
+只有当 is_problem 为 true 时，才认真完成下面的分析。
 
 请只输出 JSON，字段如下：
 {
+  "is_problem": true 或 false,
+  "message": "当 is_problem 为 false 时给用户的一句友好提示；为 true 时填空字符串",
   "title": "为这道题起一个简短标题",
   "type": "主要算法类型，如 动态规划/图论/贪心/二分/数据结构/数学/搜索/字符串 等",
   "sub_types": ["更细的标签，如 区间DP、最短路、并查集"],
@@ -47,6 +56,8 @@ def analyze(problem):
     chain = ANALYZER_PROMPT | get_json_llm(temperature=0.2, max_tokens=1200)
     resp = chain.invoke({"problem": problem})
     data = parse_json(resp.content)
+    data.setdefault("is_problem", True)
+    data.setdefault("message", "")
     data.setdefault("type", "未知")
     data.setdefault("difficulty", "中等")
     return data

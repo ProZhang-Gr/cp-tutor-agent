@@ -13,6 +13,7 @@ let hintHistory = [];         // 已给提示文本
 let chatHistory = [];         // 对话历史
 let charts = {};              // Chart.js 实例缓存
 let pendingSelection = "";     // 当前引用的选中代码片段
+let pendingSimilar = [];       // 检索到的相似题（待确认是有效题目后再渲染）
 
 /* 智能体定义：node 名 -> 卡片 */
 const AGENTS = [
@@ -164,20 +165,25 @@ async function runAnalyze() {
   setAgent("retrieve", "working");
   hintLevel = 0; hintHistory = []; $("#hint-level-num").textContent = "0"; $("#hint-box").innerHTML = "";
 
-  const order = ["retrieve", "analyze", "plan"];
   try {
     await sseStream("/api/analyze", { problem }, (ev) => {
-      if (ev.event === "node") {
-        const aid = NODE2AGENT[ev.node];
-        if (aid) setAgent(aid, "done");
-        const next = order[order.indexOf(ev.node) + 1];
-        if (next) setAgent(NODE2AGENT[next], "working");
-        if (ev.node === "retrieve") renderSimilar(ev.data.similar);
-        if (ev.node === "analyze") renderAnalysis(ev.data.analysis);
-        if (ev.node === "plan") renderStrategies(ev.data.strategies);
-      } else if (ev.event === "error") { toast("分析出错：" + ev.message); }
+      if (ev.event !== "node") { if (ev.event === "error") toast("分析出错：" + ev.message); return; }
+      const aid = NODE2AGENT[ev.node];
+      if (aid) setAgent(aid, "done");
+      if (ev.node === "retrieve") {
+        pendingSimilar = ev.data.similar || [];
+        setAgent("analyze", "working");
+      } else if (ev.node === "analyze") {
+        // 先判断是不是有效题目：是 → 继续渲染并规划；不是 → 提示去问导师
+        if (renderAnalysis(ev.data.analysis)) {
+          renderSimilar(pendingSimilar);
+          setAgent("plan", "working");
+        }
+      } else if (ev.node === "plan") {
+        renderStrategies(ev.data.strategies);
+      }
     });
-    toast("✅ 分析完成，可以开始解题了");
+    toast(currentAnalysis.is_problem === false ? "这看起来不是一道算法题" : "✅ 分析完成");
   } catch (e) { toast("请求失败：" + e.message); }
   finally { btn.disabled = false; btn.textContent = "🚀 启动智能体分析"; }
 }
@@ -185,6 +191,17 @@ async function runAnalyze() {
 function renderAnalysis(a) {
   currentAnalysis = a || {};
   $("#analysis-result").classList.remove("hidden");
+  // 非有效题目：只给友好提示 + 转交导师的入口
+  if (a && a.is_problem === false) {
+    $("#analysis-notice-text").textContent = a.message ||
+      "这看起来不像一道完整的算法题。你可以粘贴含输入/输出与样例的题面再分析，或点下方让导师直接解答～";
+    $("#analysis-notice").classList.remove("hidden");
+    $("#analysis-body").classList.add("hidden");
+    $("#strategies").classList.add("hidden");
+    return false;
+  }
+  $("#analysis-notice").classList.add("hidden");
+  $("#analysis-body").classList.remove("hidden");
   $("#ana-type").textContent = a.type || "—";
   $("#ana-diff").textContent = a.difficulty || "—";
   const score = a.difficulty_score || 0;
@@ -193,6 +210,15 @@ function renderAnalysis(a) {
   $("#ana-insight").textContent = a.key_insight || "—";
   $("#ana-pitfalls").innerHTML = (a.pitfalls || []).map(p => `<li>${esc(p)}</li>`).join("") || "<li>—</li>";
   $("#ana-knowledge").innerHTML = (a.knowledge_points || []).map(k => `<span class="chip">${esc(k)}</span>`).join("");
+  return true;
+}
+function askTutorAbout() {
+  const text = $("#problem-input").value.trim();
+  if (!text) return;
+  if ($("#workspace").classList.contains("right-collapsed")) setCollapsed("right", false);
+  $("#chat-input").value = text;
+  sendChat();
+  toast("已转交导师解答");
 }
 function renderSimilar(list) {
   $("#ana-similar").innerHTML = (list || []).map(s =>
@@ -553,6 +579,7 @@ function bind() {
   $("#btn-quote").onclick = captureSelection;
   $("#quote-clear").onclick = clearQuote;
   $("#team-strip").onclick = toggleTeam;
+  $("#btn-ask-tutor").onclick = askTutorAbout;
   $("#chat-input").onkeydown = (e) => { if (e.key === "Enter") sendChat(); };
   $("#problem-select").onchange = (e) => loadProblem(e.target.value);
   $$(".io-tab").forEach(t => t.onclick = () => switchIO(t.dataset.io));

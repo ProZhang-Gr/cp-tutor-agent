@@ -40,6 +40,11 @@ def _node_plan(state):
     return {"strategies": agents.plan(state["problem"], state["analysis"])}
 
 
+def _route_after_analyze(state):
+    # 不是有效算法题就别再做策略规划，直接收尾
+    return "plan" if state.get("analysis", {}).get("is_problem", True) else END
+
+
 def _build_analysis_graph():
     g = StateGraph(AnalysisState)
     g.add_node("retrieve", _node_retrieve)
@@ -47,7 +52,7 @@ def _build_analysis_graph():
     g.add_node("plan", _node_plan)
     g.add_edge(START, "retrieve")
     g.add_edge("retrieve", "analyze")
-    g.add_edge("analyze", "plan")
+    g.add_conditional_edges("analyze", _route_after_analyze, {"plan": "plan", END: END})
     g.add_edge("plan", END)
     return g.compile()
 
