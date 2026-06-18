@@ -18,6 +18,7 @@ from config import settings
 from core import agents, auth, billing, guard, profile, progress, report, sandbox
 from core.llm import get_llm
 from core.rag import get_bank
+from core.debugger import run_debug_stream
 from core.workflow import run_analysis_stream, run_eval_stream
 
 app = FastAPI(title="算法竞赛辅导智能体")
@@ -125,6 +126,12 @@ class ChatReq(BaseModel):
 class RunReq(BaseModel):
     code: str
     stdin: str = ""
+
+
+class DebugReq(BaseModel):
+    problem: str = ""
+    code: str
+    counterexample: dict = {}  # {input, expected, actual, reason}
 
 
 class AuthReq(BaseModel):
@@ -257,11 +264,12 @@ def evaluate(req: EvaluateReq, request: Request, arena_session: str = Cookie(def
 
     def gen():
         yield sse({"event": "start",
-                   "pipeline": ["review", "gen_tests", "run_tests", "summarize"]})
+                   "pipeline": ["review", "judge", "summarize"]})
         summary = None
         try:
             for node, delta in run_eval_stream(
                 req.problem, req.code, req.language,
+                problem_id=req.problem_id or None,
                 problem_title=req.problem_title,
                 problem_type=req.problem_type,
                 difficulty=req.difficulty,
@@ -282,6 +290,27 @@ def evaluate(req: EvaluateReq, request: Request, arena_session: str = Cookie(def
                     user_id=uid,
                     problem_id=req.problem_id or None,
                 )
+            yield sse({"event": "done"})
+        except Exception as e:
+            yield sse({"event": "error", "message": str(e)})
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+# ------------------------- Agentic 调试回路（SSE） -------------------------
+@app.post("/api/debug")
+def debug(req: DebugReq, request: Request, arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+    if len(req.code) > settings.MAX_CODE_CHARS or len(req.problem) > settings.MAX_PROBLEM_CHARS:
+        return JSONResponse({"error": "题面或代码过长"}, status_code=400)
+    blocked = _abuse_block(request, uid, "debug")
+    if blocked:
+        return blocked
+
+    def gen():
+        yield sse({"event": "start"})
+        try:
+            for kind, payload in run_debug_stream(req.problem, req.code, req.counterexample):
+                yield sse({"event": kind, "data": payload})
             yield sse({"event": "done"})
         except Exception as e:
             yield sse({"event": "error", "message": str(e)})

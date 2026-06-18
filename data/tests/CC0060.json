@@ -1,0 +1,1 @@
+[{"input": "3\n", "expected": "*\n**\n***\n", "kind": "sample"}, {"input": "6\n", "expected": "*\n**\n***\n****\n*****\n******\n", "kind": "sample"}]

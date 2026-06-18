@@ -218,3 +218,41 @@ def gen_tests(problem):
     resp = chain.invoke({"problem": problem})
     data = parse_json(resp.content)
     return data.get("test_cases", [])
+
+
+# --------------------------------------------------------------------------
+# 6. 对拍套件生成师（差分测试 / stress test）
+#    无官方测试数据时，由它产出「暴力正确解 + 随机数据生成器」，
+#    用暴力解当真值，与用户解逐组比对，抓最小反例。
+# --------------------------------------------------------------------------
+STRESSKIT_SYS = """你是竞赛对拍（stress test）专家。给定一道算法题，请产出一套可自动对拍的工具，
+让我们用「朴素暴力解」当真值来校验别人的解法。
+
+严格输出 JSON：
+{
+  "brute_code": "完整可独立运行的 Python3。从标准输入读题目输入，用最朴素、最显然正确的方法求解（正确性第一，效率无所谓，可指数级），把答案 print 到标准输出。格式必须和题目要求完全一致。",
+  "gen_code": "完整可独立运行的 Python3 随机数据生成器。从标准输入读入一个整数作为随机种子，random.seed(种子)，随机造一组【小规模】且严格符合输入格式与约束的合法输入，只把这组输入 print 出来（不要输出答案）。规模一定要小（如 n≤8、数值≤20），这样暴力解快、反例也最小。",
+  "samples": [{"input": "题面给出的样例输入（原样）", "output": "对应样例输出"}]
+}
+
+要求：
+- brute_code 与 gen_code 都必须是无需任何外部库（标准库除外）即可直接 `python x.py` 运行的完整脚本。
+- gen_code 生成的输入必须能被 brute_code 正确读取。
+- samples 从题面的 Examples / 样例中原样抽取，抽不到就给空数组。
+- 不要有任何多余解释，只输出 JSON。"""
+
+STRESSKIT_PROMPT = ChatPromptTemplate.from_messages([
+    SystemMessage(content=STRESSKIT_SYS),
+    ("human", "题目：\n{problem}"),
+])
+
+
+def gen_stress_kit(problem):
+    chain = STRESSKIT_PROMPT | get_json_llm(temperature=0.2, max_tokens=2200)
+    resp = chain.invoke({"problem": problem})
+    data = parse_json(resp.content)
+    return {
+        "brute_code": data.get("brute_code", "") or "",
+        "gen_code": data.get("gen_code", "") or "",
+        "samples": data.get("samples", []) or [],
+    }

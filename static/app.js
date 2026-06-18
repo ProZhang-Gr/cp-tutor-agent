@@ -39,10 +39,11 @@ const AGENTS = [
   { id: "plan",     icon: "🗺️", name: "策略规划师", role: "多解法 + 复杂度" },
   { id: "tutor",    icon: "🎓", name: "苏格拉底导师", role: "分层提示 / 答疑" },
   { id: "review",   icon: "🔬", name: "代码审查师", role: "bug 定位 + 优化" },
-  { id: "test",     icon: "🧪", name: "测试生成师", role: "用例构造 + 判题" },
+  { id: "test",     icon: "⚖️", name: "判题官", role: "真值判定 / 差分对拍" },
+  { id: "debug",    icon: "🛠️", name: "调试工程师", role: "ReAct 实验定位 bug" },
 ];
 const NODE2AGENT = { retrieve:"retrieve", analyze:"analyze", plan:"plan",
-                     review:"review", gen_tests:"test", run_tests:"test", summarize:null };
+                     review:"review", judge:"test", summarize:null };
 
 /* ---------------- 初始化 ---------------- */
 function initAgentTeam() {
@@ -318,8 +319,9 @@ async function submitCode() {
   switchIO("result");
   $("#verdict-bar").classList.add("hidden");
   $("#test-results").innerHTML = "<div class='empty-hint'>智能体评测进行中…</div>";
-  resetAgents(["review", "test"]);
+  resetAgents(["review", "test", "debug"]);
   setAgent("review", "working");
+  lastEval.problem = problem; lastEval.code = code; lastEval.counter = null;
 
   try {
     const meta = analysisStale ? {} : currentAnalysis;   // 题面改过则不沿用旧分析的标签
@@ -332,7 +334,7 @@ async function submitCode() {
     }, (ev) => {
       if (ev.event === "node") {
         if (ev.node === "review") { setAgent("review", "done"); setAgent("test", "working"); renderReview(ev.data.review); }
-        if (ev.node === "run_tests") renderTests(ev.data.judge);
+        if (ev.node === "judge") renderTests(ev.data.judge);
         if (ev.node === "summarize") { setAgent("test", "done"); renderVerdict(ev.data.summary); }
       } else if (ev.event === "error") { toast("评测出错：" + ev.message); }
     });
@@ -342,24 +344,97 @@ async function submitCode() {
 }
 
 let reviewData = null;
+let lastEval = { problem: "", code: "", counter: null };
 function renderReview(r) { reviewData = r; }
 function renderTests(judge) {
-  const results = (judge && judge.results) || [];
-  $("#test-results").innerHTML = results.map(t => `
+  if (!judge) return;
+  lastEval.counter = judge.counter = judge.counterexample || null;
+  const mode = judge.mode;
+  const modeLabel = mode === "truth"
+    ? `🟢 真值判定 · 官方测试数据 ${judge.passed}/${judge.total} 通过`
+    : `🟡 差分对拍 · 暴力解当真值${judge.stress ? "（" + esc(judge.stress.note) + "）" : ""}`;
+
+  // 最小反例 + 调试入口（最重要，放最上面）
+  let counterHtml = "";
+  const ce = judge.counterexample;
+  if (ce) {
+    counterHtml = `
+      <div class="counter-box">
+        <div class="counter-head">⚠️ 最小反例 · ${esc(ce.reason || "WA")}</div>
+        <div class="io-row"><label>输入</label><pre>${esc(ce.input || "(空)")}</pre></div>
+        <div class="io-row"><label>正确答案</label><pre>${esc(ce.expected || "")}</pre></div>
+        <div class="io-row"><label>你的输出</label><pre>${esc(ce.actual || "(空)")}</pre></div>
+        <button id="btn-debug" class="btn btn-accent btn-block" onclick="startDebug()">🛠️ 让调试 agent 帮我定位</button>
+        <div id="debug-panel" class="debug-panel"></div>
+      </div>`;
+  }
+
+  const cases = (judge.results || []).map((t, i) => `
     <div class="test-case">
       <div class="tc-head" onclick="this.nextElementSibling.classList.toggle('open')">
         <span class="tc-status ${t.status}">${t.status}</span>
-        <span class="tc-name">${esc(t.name)}</span>
-        <span class="tc-cat">${esc(t.category || "")}</span>
+        <span class="tc-name">用例 ${(t.index != null ? t.index : i) + 1}</span>
+        <span class="tc-cat">${esc(t.kind || "")}</span>
       </div>
       <div class="tc-detail">
-        ${t.note ? `<div style="color:var(--ink-mute);margin-bottom:4px">${esc(t.note)}</div>` : ""}
         <div class="io-row"><label>输入</label><pre>${esc(t.input || "(空)")}</pre></div>
         <div class="io-row"><label>期望输出</label><pre>${esc(t.expected || "(未提供)")}</pre></div>
         <div class="io-row"><label>实际输出</label><pre>${esc(t.actual || "(空)")}</pre></div>
-        ${t.stderr ? `<div class="io-row"><label>错误信息</label><pre style="color:var(--bad)">${esc(t.stderr)}</pre></div>` : ""}
       </div>
     </div>`).join("");
+
+  $("#test-results").innerHTML =
+    `<div class="judge-mode ${mode}">${modeLabel}</div>` + counterHtml +
+    (cases ? `<div class="cases-wrap">${cases}</div>` : "");
+}
+
+/* ---------------- Agentic 调试回路 ---------------- */
+async function startDebug() {
+  const ce = lastEval.counter;
+  if (!ce) return toast("没有可用于调试的反例");
+  const panel = $("#debug-panel");
+  if (!panel) return;
+  panel.innerHTML = "";
+  const btn = $("#btn-debug");
+  if (btn) { btn.disabled = true; btn.textContent = "🛠️ 调试 agent 工作中…"; }
+  setAgent("debug", "working");
+  let stepEl = null;
+  try {
+    await sseStream("/api/debug",
+      { problem: lastEval.problem, code: lastEval.code, counterexample: ce },
+      (ev) => {
+        const d = ev.data || {};
+        if (ev.event === "thought") {
+          stepEl = document.createElement("div");
+          stepEl.className = "dbg-step";
+          stepEl.innerHTML = `<div class="dbg-thought"><b>💭 第 ${d.step} 步思考</b><div>${esc(d.text)}</div></div>`;
+          panel.appendChild(stepEl);
+        } else if (ev.event === "action") {
+          const a = document.createElement("div");
+          a.className = "dbg-action";
+          a.innerHTML = `<div class="dbg-label">🔧 运行探针（stdin: ${esc((d.stdin || "").slice(0, 36))}）</div><pre>${esc(d.code || "")}</pre>`;
+          (stepEl || panel).appendChild(a);
+        } else if (ev.event === "observation") {
+          const o = document.createElement("div");
+          o.className = "dbg-obs";
+          o.innerHTML = `<div class="dbg-label">👁 观察 · ${esc(d.status)}</div><pre>${esc(d.stdout || d.stderr || "(空)")}</pre>`;
+          (stepEl || panel).appendChild(o);
+        } else if (ev.event === "conclusion") {
+          const c = document.createElement("div");
+          c.className = "dbg-conclusion";
+          c.innerHTML = `<div class="dbg-label">✅ 定位结论</div>
+            <div><b>根因：</b>${esc(d.root_cause || "")}</div>
+            ${d.evidence ? `<div><b>证据：</b>${esc(d.evidence)}</div>` : ""}
+            ${d.fix_hint ? `<div class="dbg-fix"><b>修复方向：</b>${esc(d.fix_hint)}</div>` : ""}`;
+          panel.appendChild(c);
+        } else if (ev.event === "error") { toast("调试出错：" + ev.message); }
+        panel.scrollTop = panel.scrollHeight;
+      });
+  } catch (e) { toast("调试失败：" + e.message); }
+  finally {
+    setAgent("debug", "done");
+    if (btn) { btn.disabled = false; btn.textContent = "🛠️ 再调试一次"; }
+  }
 }
 function renderVerdict(s) {
   if (!s) return;

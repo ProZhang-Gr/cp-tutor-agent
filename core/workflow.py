@@ -6,8 +6,8 @@
   分析流  retrieve → analyze → plan
       检索相似题 → 题目分析 → 策略规划
 
-  评测流  review → [条件分支] → gen_tests → run_tests → summarize
-      代码审查 →（语法过不了则直接收尾）→ 生成用例 → 沙箱判题 → 汇总
+  评测流  review → [条件分支] → judge → summarize
+      代码审查 →（语法过不了则直接收尾）→ 双轨判题（真值/对拍）→ 汇总
 
 用 graph.stream(stream_mode="updates") 逐节点产出中间结果，
 驱动前端"智能体协作流程"的实时可视化。
@@ -16,7 +16,7 @@ from typing import Any, Dict, List, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from core import agents, sandbox
+from core import agents, judge
 from core.rag import get_bank
 
 
@@ -63,11 +63,11 @@ class EvalState(TypedDict):
     problem: str
     code: str
     language: str
+    problem_id: str
     problem_title: str
     problem_type: str
     difficulty: str
     review: Dict[str, Any]
-    test_cases: List[Dict[str, Any]]
     judge: Dict[str, Any]
     summary: Dict[str, Any]
 
@@ -77,38 +77,54 @@ def _node_review(state):
                                     state.get("language", "python"))}
 
 
-def _node_gen_tests(state):
-    return {"test_cases": agents.gen_tests(state["problem"])}
+def _node_judge(state):
+    """双轨判题：有官方数据走真值，否则自动对拍。"""
+    return {"judge": judge.judge_solution(
+        state["problem"], state["code"], state.get("problem_id"))}
 
 
-def _node_run_tests(state):
-    cases = state.get("test_cases", [])
-    if not cases:
-        return {"judge": {"results": [], "passed": 0, "total": 0,
-                          "all_passed": False, "verdict": "无用例"}}
-    return {"judge": sandbox.judge(state["code"], cases)}
+# 判题裁决 → 中文结论
+_VERDICT_TXT = {
+    "AC": "通过", "WA": "答案错误", "TLE": "超时",
+    "RE": "运行错误", "CE": "语法/编译错误",
+}
 
 
 def _node_summarize(state):
     review = state.get("review", {})
-    judge = state.get("judge", {"passed": 0, "total": 0, "all_passed": False})
+    jd = state.get("judge", {}) or {}
     score = review.get("score", 0)
-    total, passed = judge.get("total", 0), judge.get("passed", 0)
+    mode = jd.get("mode")
+    jv = jd.get("verdict")
+    total, passed = jd.get("total", 0), jd.get("passed", 0)
+    mode_txt = "真值判定" if mode == "truth" else ("对拍" if mode == "stress" else "")
 
-    if not review.get("syntax_ok", True):
+    if not review.get("syntax_ok", True) or jv == "CE":
         verdict, kind = "代码存在语法错误", "CE"
-    elif total and passed == total:
-        verdict, kind = "全部测试用例通过", "AC"
-    elif total and passed > 0:
-        verdict, kind = "部分用例通过，仍需修正", "WA"
-    elif total:
-        verdict, kind = "未通过测试", judge.get("verdict", "WA")
+    elif jv == "AC" and total > 0:
+        verdict = ("全部真实测试通过" if mode == "truth"
+                   else "对拍未发现反例（经验性通过）")
+        kind = "AC"
+    elif jv in ("WA", "TLE", "RE"):
+        verdict = "%s · %s" % (_VERDICT_TXT.get(jv, jv), mode_txt)
+        kind = jv
+    elif jv == "NO_KIT":
+        verdict, kind = "无官方数据且无法自动对拍，已按静态审查评分", ("AC" if score >= 60 else "WA")
     else:
         verdict, kind = "已完成静态审查", "AC" if score >= 60 else "WA"
 
-    # 综合分：静态审查分 60% + 测试通过率 40%
-    test_ratio = (passed / total) if total else (score / 100.0)
-    final = round(score * 0.6 + test_ratio * 100 * 0.4)
+    # 综合分：判题裁决是铁证，主导评分；审查分仅作小幅风格加成。
+    review_bonus = min(max(score, 0), 100) * 0.05  # 0~5 分风格加成
+    if kind == "CE":
+        final = min(score, 20)
+    elif jv == "AC" and total > 0:
+        base = 95 if mode == "truth" else 85   # 对拍是经验性结论，略保守
+        final = round(min(100, base + review_bonus))
+    elif jv in ("WA", "TLE", "RE") and total > 0:
+        # 过了多少给多少（最高 55），再加风格分
+        final = round(min(60, (passed / total) * 55 + review_bonus))
+    else:
+        final = score  # 仅静态审查
 
     return {"summary": {
         "verdict": verdict,
@@ -116,28 +132,28 @@ def _node_summarize(state):
         "final_score": final,
         "passed": passed,
         "total": total,
+        "judge_mode": mode,
+        "counterexample": jd.get("counterexample"),
         "next_step": review.get("next_step", ""),
     }}
 
 
 def _route_after_review(state):
-    # 语法都通不过，没必要再跑测试，直接收尾
+    # 语法都通不过，没必要再判题，直接收尾
     if not state.get("review", {}).get("syntax_ok", True):
         return "summarize"
-    return "gen_tests"
+    return "judge"
 
 
 def _build_eval_graph():
     g = StateGraph(EvalState)
     g.add_node("review", _node_review)
-    g.add_node("gen_tests", _node_gen_tests)
-    g.add_node("run_tests", _node_run_tests)
+    g.add_node("judge", _node_judge)
     g.add_node("summarize", _node_summarize)
     g.add_edge(START, "review")
     g.add_conditional_edges("review", _route_after_review,
-                            {"gen_tests": "gen_tests", "summarize": "summarize"})
-    g.add_edge("gen_tests", "run_tests")
-    g.add_edge("run_tests", "summarize")
+                            {"judge": "judge", "summarize": "summarize"})
+    g.add_edge("judge", "summarize")
     g.add_edge("summarize", END)
     return g.compile()
 

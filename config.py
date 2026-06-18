@@ -40,10 +40,18 @@ class Settings:
     DATA_DIR = os.path.join(_ROOT, "data")
     STATIC_DIR = os.path.join(_ROOT, "static")
     PROBLEM_BANK = os.path.join(DATA_DIR, "problems.json")
+    TESTS_DIR = os.path.join(DATA_DIR, "tests")  # 真题的真实测试数据（判题真值）
     DB_PATH = os.path.join(DATA_DIR, "progress.db")
 
     # 沙箱
     SANDBOX_TIMEOUT = 6  # 单个测试用例超时（秒）
+
+    # 对拍（差分测试）：无真实数据时，用暴力解 + 随机生成器 stress test
+    STRESS_TRIALS = 30     # 随机对拍轮数
+    STRESS_TIMEOUT = 4     # 对拍时单次运行超时（秒），比正式判题略短
+
+    # Agentic 调试回路（ReAct）
+    DEBUG_MAX_STEPS = 4    # 调试 agent 最多迭代轮数（每轮可调一次沙箱）
 
     # 防滥用
     RATE_PER_MIN = 20          # 每 IP 每分钟请求上限

@@ -196,6 +196,40 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 .tc-detail .io-row label{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-mute)}
 .tc-detail pre{background:var(--code-bg);color:#cfc8b8;border-radius:var(--r-xs);padding:8px;margin-top:3px;
   white-space:pre-wrap;max-height:120px;overflow:auto}
+.cases-wrap{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+
+/* 判题模式徽章：真值判定 / 差分对拍 */
+.judge-mode{font-family:var(--font-mono);font-size:11.5px;font-weight:700;padding:8px 12px;
+  border-radius:var(--r-sm);border:1px solid var(--line);line-height:1.5}
+.judge-mode.truth{background:rgba(60,139,87,.10);color:var(--ok);border-color:rgba(60,139,87,.35)}
+.judge-mode.stress{background:rgba(194,146,46,.10);color:var(--warn);border-color:rgba(194,146,46,.35)}
+
+/* 最小反例 + 调试入口 */
+.counter-box{margin-top:10px;background:rgba(191,74,48,.06);border:1px solid rgba(191,74,48,.35);
+  border-left:3px solid var(--bad);border-radius:var(--r-sm);padding:11px 13px;font-family:var(--font-mono);font-size:11.5px}
+.counter-head{font-weight:700;color:var(--bad);margin-bottom:6px}
+.counter-box .io-row{margin-top:6px}
+.counter-box .io-row label{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-mute)}
+.counter-box pre{background:var(--code-bg);color:#cfc8b8;border-radius:var(--r-xs);padding:7px;margin-top:3px;
+  white-space:pre-wrap;max-height:110px;overflow:auto}
+.counter-box #btn-debug{margin-top:11px}
+
+/* 调试 agent 多步推理面板 */
+.debug-panel{margin-top:10px;display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto}
+.debug-panel:empty{display:none}
+.dbg-step,.dbg-action,.dbg-obs,.dbg-conclusion{border-radius:var(--r-xs);padding:8px 10px;font-size:11.5px}
+.dbg-thought{color:var(--ink);line-height:1.55}
+.dbg-thought b{color:var(--accent);font-family:var(--font-mono)}
+.dbg-step{background:var(--paper);border:1px solid var(--line)}
+.dbg-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--ink-mute);margin-bottom:4px}
+.dbg-action{background:var(--surface2);border:1px dashed var(--line)}
+.dbg-action pre,.dbg-obs pre{background:var(--code-bg);color:#cfc8b8;border-radius:var(--r-xs);padding:7px;
+  margin:0;white-space:pre-wrap;max-height:160px;overflow:auto;font-size:11px}
+.dbg-obs{background:rgba(58,110,165,.06);border:1px solid rgba(58,110,165,.28)}
+.dbg-conclusion{background:rgba(60,139,87,.08);border:1px solid rgba(60,139,87,.4);color:var(--ink);line-height:1.6}
+.dbg-conclusion b{color:var(--accent-strong)}
+.dbg-fix{margin-top:5px;padding-top:5px;border-top:1px dashed rgba(60,139,87,.3)}
 
 /* ===================== 智能体团队 ===================== */
 /* 迷你状态条（常驻，可一眼看状态）+ 点击展开详情 */
