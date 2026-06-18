@@ -57,6 +57,14 @@
 - **快捷键**：`Ctrl+Enter` 运行、`Ctrl+S` 提交；
 - Monaco（VS Code 同款）编辑器、流式打字机输出、智能体协作动画。
 
+### 8. 用户系统 · 会员分级 · 每日报告（企业级）
+- **账号体系**：注册/登录（密码加盐哈希、HMAC 签名 Cookie），游客优先、数据按用户隔离；
+- **Free / Pro 分级**：算力点 `credits` 体系，模拟充值即开通 Pro（不接真钱）；
+  - Pro 解锁：**不受每日额度** · **深度分析**（额外解题推演）· **每日报告 PDF 下载**；
+- **AI 每日学习报告**：聚合当日刷题数据 + LLM 叙述性点评 + 明日建议，一键导出中文 PDF；
+- **防滥用**：IP 限流 + 每日配额 + 审计日志 + 输入上限 + 对话话题守门（给 API 花费封顶）；
+- **数据持久层**：SQLAlchemy 2.0 ORM + 连接池 + Alembic 迁移，本地 SQLite / 线上 PostgreSQL(Neon) 透明切换。
+
 ---
 
 ## 🧠 技术栈
@@ -70,7 +78,8 @@
 | LLM 框架 | **LangChain** | Prompt 模板、消息组装、链式调用；接 `ChatOpenAI` 走 DeepSeek |
 | 检索增强 | **LangChain TFIDFRetriever** | 题库 RAG，底层 scikit-learn，**零模型下载**、开箱即用；中文用字符级 n-gram 规避分词依赖 |
 | 代码沙箱 | **subprocess** 隔离 | 独立子进程 + 超时控制 + 临时工作目录；**剥离环境变量**防密钥泄露 |
-| 数据存储 | **SQLite / PostgreSQL** | 自研抽象层，本地 SQLite、设 `DATABASE_URL` 自动切 Postgres 持久化 |
+| 数据持久层 | **SQLAlchemy 2.0** + **Alembic** | ORM + 连接池 + 版本化迁移；本地 SQLite、线上 PostgreSQL(Neon) 透明切换 |
+| 报告导出 | **reportlab** | 每日报告 PDF，内置中文字体（STSong），无需外部字体文件 |
 | 认证 | **pbkdf2 + HMAC** | 密码加盐哈希（标准库）、HMAC 签名 Cookie 实现无状态登录、防篡改 |
 | 前端 | 原生 **JS** + **Monaco** + **Chart.js** + **marked** | 无框架、零构建；Monaco 编辑器、Chart.js 图表、marked 渲染 Markdown |
 | 设计 | **Fraunces** / IBM Plex Sans / JetBrains Mono | 暖色「书桌」主题，衬线标题 + 无衬线正文 + 等宽代码；字体走 jsdelivr/@fontsource（国内可达） |
