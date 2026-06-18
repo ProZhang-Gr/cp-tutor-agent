@@ -12,6 +12,7 @@ let hintLevel = 0;            // 当前提示层级
 let hintHistory = [];         // 已给提示文本
 let chatHistory = [];         // 对话历史
 let charts = {};              // Chart.js 实例缓存
+let pendingSelection = "";     // 当前引用的选中代码片段
 
 /* 智能体定义：node 名 -> 卡片 */
 const AGENTS = [
@@ -87,6 +88,14 @@ require(["vs/editor/editor.main"], () => {
   // 编辑器内快捷键
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runCode());
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => submitCode());
+  // 右键菜单：框选代码后「问导师这段」
+  editor.addAction({
+    id: "ask-tutor-selection",
+    label: "💬 问导师这段代码",
+    contextMenuGroupId: "navigation",
+    contextMenuOrder: 1,
+    run: () => captureSelection(),
+  });
 });
 
 /* ---------------- SSE 流式工具 ---------------- */
@@ -303,7 +312,9 @@ async function sendChat() {
   const q = $("#chat-input").value.trim();
   if (!q) return;
   $("#chat-input").value = "";
-  addMsg("user", q);
+  const sel = pendingSelection;
+  addMsg("user", q + (sel ? "  〔已引用选中代码 " + sel.split("\n").length + " 行〕" : ""));
+  clearQuote();
   setAgent("tutor", "working");
   const aMsg = addMsg("assistant", "");
   let acc = "";
@@ -311,6 +322,7 @@ async function sendChat() {
   try {
     await sseStream("/api/chat", {
       problem: $("#problem-input").value.trim(), question: q, history: chatHistory,
+      code: editor ? editor.getValue() : "", selection: sel,
     }, (ev) => {
       if (ev.event === "token") { acc += ev.text; aMsg.innerHTML = marked.parse(acc);
         $("#chat-log").scrollTop = $("#chat-log").scrollHeight; }
@@ -318,6 +330,19 @@ async function sendChat() {
     chatHistory.push({ role: "user", content: q }, { role: "assistant", content: acc });
   } catch (e) { aMsg.textContent = "回复失败"; }
   finally { aMsg.classList.remove("cursor-blink"); setAgent("tutor", "done"); }
+}
+function captureSelection() {
+  if (!editor) return;
+  const sel = editor.getModel().getValueInRange(editor.getSelection());
+  if (!sel || !sel.trim()) { toast("请先在编辑器里选中一段代码"); return; }
+  pendingSelection = sel;
+  $("#quote-lines").textContent = sel.split("\n").length;
+  $("#quote-chip").classList.remove("hidden");
+  $("#chat-input").focus();
+}
+function clearQuote() {
+  pendingSelection = "";
+  $("#quote-chip").classList.add("hidden");
 }
 function addMsg(role, text) {
   const div = document.createElement("div");
@@ -493,6 +518,8 @@ function bind() {
   $("#btn-copy").onclick = copyCode;
   $("#btn-hint").onclick = requestHint;
   $("#btn-chat").onclick = sendChat;
+  $("#btn-quote").onclick = captureSelection;
+  $("#quote-clear").onclick = clearQuote;
   $("#chat-input").onkeydown = (e) => { if (e.key === "Enter") sendChat(); };
   $("#problem-select").onchange = (e) => loadProblem(e.target.value);
   $$(".io-tab").forEach(t => t.onclick = () => switchIO(t.dataset.io));

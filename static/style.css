@@ -195,15 +195,15 @@ body.resizing *{cursor:col-resize!important;user-select:none}
   white-space:pre-wrap;max-height:120px;overflow:auto}
 
 /* ===================== 智能体团队 ===================== */
-.agent-team{display:flex;flex-direction:column;gap:9px;margin-bottom:10px}
-.agent{display:flex;align-items:center;gap:12px;padding:11px 13px;background:var(--tint);
+.agent-team{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.agent{display:flex;align-items:center;gap:10px;padding:7px 11px;background:var(--tint);
   border:1px solid var(--line-soft);border-radius:var(--r-sm);position:relative;overflow:hidden;transition:.22s}
-.agent .a-icon{font-size:18px;width:38px;height:38px;display:grid;place-items:center;border-radius:var(--r-xs);
+.agent .a-icon{font-size:15px;width:30px;height:30px;display:grid;place-items:center;border-radius:var(--r-xs);
   background:var(--paper);border:1px solid var(--line);flex-shrink:0}
 .agent .a-info{flex:1;min-width:0}
-.agent .a-name{font-family:var(--font-body);font-size:13px;font-weight:600}
-.agent .a-role{font-size:11px;color:var(--ink-mute)}
-.agent .a-state{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.5px;padding:3px 8px;border-radius:20px;
+.agent .a-name{font-family:var(--font-body);font-size:12.5px;font-weight:600;line-height:1.25}
+.agent .a-role{font-size:10px;color:var(--ink-mute);line-height:1.2}
+.agent .a-state{font-family:var(--font-mono);font-size:9px;letter-spacing:.5px;padding:2px 7px;border-radius:20px;
   background:var(--surface2);color:var(--ink-mute);border:1px solid var(--line)}
 .agent.working{border-color:var(--accent);background:var(--accent-tint)}
 .agent.working .a-icon{border-color:var(--accent);background:var(--paper)}
@@ -242,6 +242,13 @@ body.resizing *{cursor:col-resize!important;user-select:none}
   color:var(--ink);padding:10px 12px;font-family:var(--font-body);font-size:13px}
 .chat-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
 .chat-input-bar .btn{padding:10px 15px}
+.btn-quote{padding:10px 12px!important;font-size:15px}
+.quote-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;
+  background:var(--accent-tint);border:1px solid var(--line-soft);border-radius:var(--r-sm);
+  padding:6px 10px;font-size:11.5px;color:var(--accent)}
+.quote-chip b{font-family:var(--font-mono)}
+.quote-x{background:none;border:none;color:var(--ink-mute);cursor:pointer;font-size:13px;padding:0 2px}
+.quote-x:hover{color:var(--bad)}
 
 /* ===================== 仪表盘 ===================== */
 .dashboard{padding:28px;height:100%;overflow-y:auto;max-width:1280px;margin:0 auto}

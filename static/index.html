@@ -124,8 +124,13 @@
 
         <div class="chat">
           <div id="chat-log" class="chat-log"></div>
+          <div id="quote-chip" class="quote-chip hidden">
+            <span>📎 已引用选中代码 <b id="quote-lines">0</b> 行</span>
+            <button id="quote-clear" class="quote-x" title="取消引用">✕</button>
+          </div>
           <div class="chat-input-bar">
-            <input id="chat-input" class="chat-input" placeholder="向导师提问…">
+            <button id="btn-quote" class="btn btn-ghost btn-quote" title="引用编辑器中选中的代码">⌗</button>
+            <input id="chat-input" class="chat-input" placeholder="向导师提问，他能看到你的代码…">
             <button id="btn-chat" class="btn btn-primary">↵</button>
           </div>
         </div>

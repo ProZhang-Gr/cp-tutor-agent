@@ -72,6 +72,8 @@ class ChatReq(BaseModel):
     problem: str = ""
     question: str
     history: list = []
+    code: str = ""        # 学生编辑器里的完整代码（导师可实时看到）
+    selection: str = ""   # 学生框选、想重点询问的片段
 
 
 class RunReq(BaseModel):
@@ -233,6 +235,13 @@ def chat(req: ChatReq, arena_session: str = Cookie(default=None)):
                 msgs.append(("system", "因材施教：" + directive))
             if req.problem:
                 msgs.append(("system", "当前题目：\n" + req.problem))
+            if req.code.strip():
+                msgs.append(("system", "学生当前编辑器里的完整代码（请结合它来回答，"
+                                       "可直接引用具体行/变量）：\n```python\n"
+                                       + req.code[:4000] + "\n```"))
+            if req.selection.strip():
+                msgs.append(("system", "学生用鼠标框选、想重点询问的代码片段：\n```python\n"
+                                       + req.selection[:2000] + "\n```"))
             for m in req.history[-6:]:
                 role = "assistant" if m.get("role") == "assistant" else "user"
                 msgs.append((role, m.get("content", "")))
