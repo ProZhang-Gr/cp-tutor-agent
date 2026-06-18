@@ -110,14 +110,15 @@ TUTOR_SYS = """你是一名践行"苏格拉底教学法"的算法导师。你的
 
 TUTOR_PROMPT = ChatPromptTemplate.from_messages([
     ("system", TUTOR_SYS),
+    ("system", "因材施教提示（据此调整教学策略与挑战强度，但对学生始终保持尊重与鼓励）：{directive}"),
     ("human", "题目：\n{problem}\n\n分析参考：\n{analysis}\n\n"
               "学生当前的困惑/提问：{question}\n\n"
               "已经给过的提示：{history}\n\n请给出第 {hint_level} 层的提示。"),
 ])
 
 
-def tutor_stream(problem, analysis, question, hint_level, history):
-    """返回 LLM 流式生成器，逐 token 产出。"""
+def tutor_stream(problem, analysis, question, hint_level, history, directive=""):
+    """返回 LLM 流式生成器，逐 token 产出。directive 为因材施教指令。"""
     chain = TUTOR_PROMPT | get_llm(temperature=0.6, streaming=True, max_tokens=700)
     return chain.stream({
         "problem": problem,
@@ -125,6 +126,7 @@ def tutor_stream(problem, analysis, question, hint_level, history):
         "question": question or "（没有具体提问，请给方向性启发）",
         "hint_level": hint_level,
         "history": history or "（无）",
+        "directive": directive or "（无特定画像，按通用策略）",
     })
 
 

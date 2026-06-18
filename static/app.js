@@ -75,6 +75,18 @@ require(["vs/editor/editor.main"], () => {
     fontFamily: "JetBrains Mono, Consolas, monospace",
     automaticLayout: true, scrollBeyondLastLine: false, padding: { top: 12 },
   });
+  // 恢复上次代码
+  const savedCode = localStorage.getItem("cp_code");
+  if (savedCode) editor.setValue(savedCode);
+  // 自动保存（防抖）
+  let codeTimer;
+  editor.onDidChangeModelContent(() => {
+    clearTimeout(codeTimer);
+    codeTimer = setTimeout(() => localStorage.setItem("cp_code", editor.getValue()), 500);
+  });
+  // 编辑器内快捷键
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runCode());
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => submitCode());
 });
 
 /* ---------------- SSE 流式工具 ---------------- */
@@ -329,6 +341,7 @@ async function loadProblem(pid) {
   let text = p.description;
   if (p.sample_input) text += `\n\n样例输入：\n${p.sample_input}\n\n样例输出：\n${p.sample_output}`;
   $("#problem-input").value = text;
+  localStorage.setItem("cp_problem", text);
   $("#problem-select").value = pid;
   toast("已载入：" + p.title);
 }
@@ -399,11 +412,75 @@ function toast(msg) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
 }
 
+function copyCode() {
+  if (!editor) return;
+  navigator.clipboard.writeText(editor.getValue())
+    .then(() => toast("已复制代码")).catch(() => toast("复制失败"));
+}
+
+/* ---------------- 面板：折叠 / 拖宽 / 记忆 ---------------- */
+const MIN_W = 220, MAX_W = 560;
+function setCollapsed(side, on) {
+  const ws = $("#workspace");
+  ws.classList.toggle(side + "-collapsed", on);
+  localStorage.setItem(side === "left" ? "cp_lc" : "cp_rc", on ? "1" : "0");
+  const btn = document.querySelector(`.col-toggle[data-side="${side}"]`);
+  if (btn) btn.textContent = side === "left" ? (on ? "›" : "‹") : (on ? "‹" : "›");
+}
+function initPanels() {
+  const ws = $("#workspace");
+  const lw = localStorage.getItem("cp_lw"), rw = localStorage.getItem("cp_rw");
+  if (lw) ws.style.setProperty("--left-w", lw + "px");
+  if (rw) ws.style.setProperty("--right-w", rw + "px");
+  if (localStorage.getItem("cp_lc") === "1") setCollapsed("left", true);
+  if (localStorage.getItem("cp_rc") === "1") setCollapsed("right", true);
+
+  $$(".col-toggle").forEach(btn => btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const side = btn.dataset.side;
+    setCollapsed(side, !ws.classList.contains(side + "-collapsed"));
+  }));
+
+  $$(".gutter").forEach(g => g.addEventListener("mousedown", (e) => {
+    if (e.target.classList.contains("col-toggle")) return;     // 点按钮不拖
+    const side = g.dataset.side;
+    if (ws.classList.contains(side + "-collapsed")) return;    // 折叠时不拖
+    e.preventDefault();
+    document.body.classList.add("resizing");
+    const rect = ws.getBoundingClientRect();
+    const move = (ev) => {
+      let w = side === "left" ? ev.clientX - rect.left - 18 : rect.right - ev.clientX - 18;
+      w = Math.max(MIN_W, Math.min(MAX_W, w));
+      ws.style.setProperty(side === "left" ? "--left-w" : "--right-w", w + "px");
+      localStorage.setItem(side === "left" ? "cp_lw" : "cp_rw", Math.round(w));
+    };
+    const up = () => {
+      document.body.classList.remove("resizing");
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }));
+}
+
+/* ---------------- 题目自动保存 ---------------- */
+function initPersistence() {
+  const inp = $("#problem-input");
+  const saved = localStorage.getItem("cp_problem");
+  if (saved) inp.value = saved;
+  let t;
+  inp.addEventListener("input", () => {
+    clearTimeout(t); t = setTimeout(() => localStorage.setItem("cp_problem", inp.value), 400);
+  });
+}
+
 /* ---------------- 事件绑定 ---------------- */
 function bind() {
   $("#btn-analyze").onclick = runAnalyze;
   $("#btn-run").onclick = runCode;
   $("#btn-submit").onclick = submitCode;
+  $("#btn-copy").onclick = copyCode;
   $("#btn-hint").onclick = requestHint;
   $("#btn-chat").onclick = sendChat;
   $("#chat-input").onkeydown = (e) => { if (e.key === "Enter") sendChat(); };
@@ -416,9 +493,88 @@ function bind() {
     $("#view-" + t.dataset.view).classList.add("active");
     if (t.dataset.view === "dashboard") loadDashboard();
   });
+  // 全局快捷键：Ctrl+S 提交（编辑器外也生效）
+  window.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); submitCode(); }
+  });
+}
+
+/* ---------------- 认证 / 画像 ---------------- */
+let currentUser = null, currentProfile = null, authMode = "login";
+
+async function loadMe() {
+  try {
+    const r = await fetch("/api/me").then(r => r.json());
+    currentUser = r.user; currentProfile = r.profile;
+    renderAuthArea(); renderAdaptiveNote();
+  } catch (e) {}
+}
+function renderAuthArea() {
+  const a = $("#auth-area");
+  if (currentUser) {
+    const p = currentProfile || {};
+    a.innerHTML = `<span class="user-chip">
+        <span class="user-name">${esc(currentUser.username)}</span>
+        <span class="tier-badge ${p.tier || "novice"}" title="${esc(p.summary || "")}">${esc(p.tier_label || "新手")}</span>
+      </span><button class="logout-btn" id="logout-btn">退出</button>`;
+    $("#logout-btn").onclick = logout;
+  } else {
+    a.innerHTML = `<button class="auth-btn ghost" data-open="login">登录</button>
+                   <button class="auth-btn" data-open="register">注册</button>`;
+    a.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openAuth(b.dataset.open));
+  }
+}
+function renderAdaptiveNote() {
+  const n = $("#adaptive-note");
+  if (currentUser && currentProfile && !currentProfile.is_empty) {
+    n.classList.remove("hidden");
+    n.innerHTML = `已按你的画像 <b>${esc(currentProfile.tier_label)}档</b> 因材施教` +
+      (currentProfile.weak_types && currentProfile.weak_types.length
+        ? `（薄弱：${esc(currentProfile.weak_types.join("、"))}）` : "");
+  } else { n.classList.add("hidden"); }
+}
+function openAuth(mode) {
+  authMode = mode;
+  $("#auth-modal").classList.remove("hidden");
+  $("#auth-err").textContent = "";
+  $$(".modal-tab").forEach(t => t.classList.toggle("active", t.dataset.auth === mode));
+  $("#auth-submit").textContent = mode === "login" ? "登录" : "注册";
+  $("#auth-username").focus();
+}
+function closeAuth() { $("#auth-modal").classList.add("hidden"); }
+async function submitAuth() {
+  const username = $("#auth-username").value.trim(), password = $("#auth-password").value;
+  if (!username || !password) { $("#auth-err").textContent = "请输入用户名和密码"; return; }
+  const url = authMode === "login" ? "/api/login" : "/api/register";
+  try {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }) });
+    const data = await r.json();
+    if (!r.ok) { $("#auth-err").textContent = data.error || "操作失败"; return; }
+    closeAuth(); $("#auth-password").value = "";
+    await loadMe();
+    toast(authMode === "login" ? "已登录" : "注册成功，已登录");
+    if ($("#view-dashboard").classList.contains("active")) loadDashboard();
+  } catch (e) { $("#auth-err").textContent = "网络错误"; }
+}
+async function logout() {
+  await fetch("/api/logout", { method: "POST" });
+  await loadMe(); toast("已退出");
+  if ($("#view-dashboard").classList.contains("active")) loadDashboard();
+}
+function bindAuth() {
+  $("#auth-close").onclick = closeAuth;
+  $("#auth-submit").onclick = submitAuth;
+  $$(".modal-tab").forEach(t => t.onclick = () => openAuth(t.dataset.auth));
+  $("#auth-modal").onclick = (e) => { if (e.target.id === "auth-modal") closeAuth(); };
+  $("#auth-password").onkeydown = (e) => { if (e.key === "Enter") submitAuth(); };
 }
 
 /* ---------------- 启动 ---------------- */
 initAgentTeam();
 bind();
+bindAuth();
+initPanels();
+initPersistence();
 loadProblemList();
+loadMe();

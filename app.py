@@ -8,13 +8,13 @@ RAG 题库、代码沙箱与学习进度，并托管前端静态页面。
 """
 import json
 
-from fastapi import FastAPI
+from fastapi import Cookie, FastAPI, Response
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from config import settings
-from core import agents, progress, sandbox
+from core import agents, auth, profile, progress, sandbox
 from core.llm import get_llm
 from core.rag import get_bank
 from core.workflow import run_analysis_stream, run_eval_stream
@@ -23,10 +23,17 @@ app = FastAPI(title="算法竞赛辅导智能体")
 
 progress.init_db()
 
+COOKIE = "arena_session"
+
 
 def sse(obj):
     """格式化为一条 SSE 消息。"""
     return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
+
+
+def _uid(session):
+    """从登录 Cookie 解出用户 id；游客返回 None。"""
+    return auth.parse_token(session) if session else None
 
 
 # ------------------------- 请求模型 -------------------------
@@ -62,6 +69,56 @@ class RunReq(BaseModel):
     stdin: str = ""
 
 
+class AuthReq(BaseModel):
+    username: str
+    password: str
+
+
+# ------------------------- 认证 -------------------------
+def _set_login(resp, uid):
+    token = auth.make_token(uid)
+    resp.set_cookie(COOKIE, token, httponly=True, samesite="lax", max_age=30 * 24 * 3600)
+
+
+@app.post("/api/register")
+def register(req: AuthReq, resp: Response):
+    err = auth.validate_credentials(req.username, req.password)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    user, err = auth.create_user(req.username, req.password)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    _set_login(resp, user["id"])
+    return {"user": user}
+
+
+@app.post("/api/login")
+def login(req: AuthReq, resp: Response):
+    user = auth.authenticate(req.username, req.password)
+    if not user:
+        return JSONResponse({"error": "用户名或密码错误"}, status_code=401)
+    _set_login(resp, user["id"])
+    return {"user": user}
+
+
+@app.post("/api/logout")
+def logout(resp: Response):
+    resp.delete_cookie(COOKIE)
+    return {"ok": True}
+
+
+@app.get("/api/me")
+def me(arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+    if uid is None:
+        return {"user": None, "profile": profile.build_profile(None)}
+    user = auth.get_user_by_id(uid)
+    if not user:
+        return {"user": None, "profile": profile.build_profile(None)}
+    return {"user": {"id": user["id"], "username": user["username"]},
+            "profile": profile.build_profile(uid)}
+
+
 # ------------------------- 题库 -------------------------
 @app.get("/api/problems")
 def list_problems():
@@ -90,7 +147,9 @@ def analyze(req: AnalyzeReq):
 
 # ------------------------- 评测流（SSE） -------------------------
 @app.post("/api/evaluate")
-def evaluate(req: EvaluateReq):
+def evaluate(req: EvaluateReq, arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+
     def gen():
         yield sse({"event": "start",
                    "pipeline": ["review", "gen_tests", "run_tests", "summarize"]})
@@ -115,6 +174,7 @@ def evaluate(req: EvaluateReq):
                     tests_total=summary.get("total", 0),
                     score=summary.get("final_score", 0),
                     error_kind=summary.get("error_kind", "AC"),
+                    user_id=uid,
                 )
             yield sse({"event": "done"})
         except Exception as e:
@@ -124,13 +184,15 @@ def evaluate(req: EvaluateReq):
 
 # ------------------------- 苏格拉底提示（SSE 流式 token） -------------------------
 @app.post("/api/hint")
-def hint(req: HintReq):
+def hint(req: HintReq, arena_session: str = Cookie(default=None)):
+    directive = profile.build_directive(_uid(arena_session))
+
     def gen():
         yield sse({"event": "start", "hint_level": req.hint_level})
         try:
             for chunk in agents.tutor_stream(
                 req.problem, req.analysis, req.question,
-                req.hint_level, req.history,
+                req.hint_level, req.history, directive,
             ):
                 text = getattr(chunk, "content", "") or ""
                 if text:
@@ -150,11 +212,15 @@ CHAT_SYS = (
 
 
 @app.post("/api/chat")
-def chat(req: ChatReq):
+def chat(req: ChatReq, arena_session: str = Cookie(default=None)):
+    directive = profile.build_directive(_uid(arena_session))
+
     def gen():
         yield sse({"event": "start"})
         try:
             msgs = [("system", CHAT_SYS)]
+            if directive:
+                msgs.append(("system", "因材施教：" + directive))
             if req.problem:
                 msgs.append(("system", "当前题目：\n" + req.problem))
             for m in req.history[-6:]:
@@ -180,8 +246,8 @@ def run_code(req: RunReq):
 
 # ------------------------- 学习进度仪表盘 -------------------------
 @app.get("/api/stats")
-def get_stats():
-    return progress.stats()
+def get_stats(arena_session: str = Cookie(default=None)):
+    return progress.stats(_uid(arena_session))
 
 
 # ------------------------- 前端静态资源 -------------------------

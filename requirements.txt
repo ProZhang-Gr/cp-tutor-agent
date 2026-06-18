@@ -13,3 +13,4 @@ langgraph==1.2.5
 openai==2.38.0
 pydantic==2.13.4
 scikit-learn>=1.5
+psycopg2-binary>=2.9   # 仅当设置 DATABASE_URL(Postgres) 时启用，用于云端持久化

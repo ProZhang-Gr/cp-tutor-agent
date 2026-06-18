@@ -26,6 +26,11 @@ class Settings:
     DEEPSEEK_API_KEY = _load_api_key()
     BASE_URL = "https://api.deepseek.com"
 
+    # 登录态签名密钥（生产环境用环境变量覆盖）
+    SECRET_KEY = os.getenv("SECRET_KEY", "arena-dev-secret-change-in-prod")
+    # 数据库：设了 DATABASE_URL（Postgres）则持久化，否则用本地 SQLite
+    DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+
     # deepseek-chat = V3 通用模型；deepseek-reasoner = R1 深度推理模型
     MODEL_CHAT = "deepseek-chat"
     MODEL_REASONER = "deepseek-reasoner"
