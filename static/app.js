@@ -469,10 +469,20 @@ function initPersistence() {
   const inp = $("#problem-input");
   const saved = localStorage.getItem("cp_problem");
   if (saved) inp.value = saved;
+  const savedH = localStorage.getItem("cp_problem_h");
+  if (savedH) inp.style.height = savedH + "px";
   let t;
   inp.addEventListener("input", () => {
     clearTimeout(t); t = setTimeout(() => localStorage.setItem("cp_problem", inp.value), 400);
   });
+  // 记忆题目框被拖拽后的高度
+  if (window.ResizeObserver) {
+    let ht;
+    new ResizeObserver(() => {
+      clearTimeout(ht);
+      ht = setTimeout(() => localStorage.setItem("cp_problem_h", Math.round(inp.offsetHeight)), 300);
+    }).observe(inp);
+  }
 }
 
 /* ---------------- 事件绑定 ---------------- */

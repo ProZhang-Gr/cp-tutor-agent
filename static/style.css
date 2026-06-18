@@ -86,9 +86,9 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 .sec-head .mini-select,.sec-head .hint-level{margin-left:auto}
 
 /* 输入 / 选择 / 按钮 */
-.problem-input{width:100%;min-height:150px;max-height:55vh;resize:vertical;
+.problem-input{width:100%;min-height:180px;max-height:80vh;height:240px;resize:vertical;
   background:var(--field);border:1px solid var(--line);border-radius:var(--r-sm);color:var(--ink);
-  padding:13px;font-family:var(--font-mono);font-size:12.5px;line-height:1.7}
+  padding:13px;font-family:var(--font-mono);font-size:12.5px;line-height:1.75}
 .problem-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
 .mini-select{font-family:var(--font-body);background:var(--field);border:1px solid var(--line);
   color:var(--ink-dim);padding:6px 10px;border-radius:var(--r-sm);font-size:12px;cursor:pointer;max-width:160px}
