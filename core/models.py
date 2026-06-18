@@ -22,6 +22,7 @@ class User(Base):
     pw_hash: Mapped[str] = mapped_column(String(128))
     salt: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[float] = mapped_column(Float, default=time.time)
+    credits: Mapped[int] = mapped_column(Integer, default=0)   # 算力点，>0 即 Pro
 
 
 class Submission(Base):

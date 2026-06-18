@@ -353,3 +353,22 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 .auth-err{color:var(--bad);font-size:12px;min-height:16px;margin-bottom:6px}
 .auth-hint{font-size:11.5px;color:var(--ink-mute);line-height:1.6;margin-top:14px;text-align:center}
 .auth-hint b{color:var(--accent)}
+
+/* 会员 / 充值 / 深度分析 */
+.credits-chip{font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);
+  background:var(--surface2);border:1px solid var(--line);padding:3px 8px;border-radius:20px}
+.pro-badge{font-family:var(--font-body);font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+  background:linear-gradient(135deg,var(--gold),#d8a93f);color:#3a2c08}
+.recharge-link{font-size:11.5px;color:var(--accent);background:none;border:none;cursor:pointer;text-decoration:underline;padding:2px}
+.recharge-link:hover{color:var(--accent-strong)}
+.deep-toggle{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:12.5px;color:var(--ink-dim);cursor:pointer;user-select:none}
+.deep-toggle input{accent-color:var(--accent)}
+.pro-tag{font-family:var(--font-body);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;
+  background:linear-gradient(135deg,var(--gold),#d8a93f);color:#3a2c08;letter-spacing:.5px}
+.ana-item.deep{border-left-color:var(--gold);background:rgba(190,142,44,.07)}
+.ana-item.deep label{color:var(--gold)}
+#ana-deepdive{font-size:12.5px;line-height:1.7;color:var(--ink);white-space:pre-wrap}
+.recharge-pkgs{display:flex;flex-direction:column;gap:9px;margin-top:6px}
+.pkg{font-family:var(--font-body);font-size:14px;font-weight:600;padding:13px;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--field);color:var(--ink);cursor:pointer;transition:.15s}
+.pkg:hover{border-color:var(--gold);background:rgba(190,142,44,.08)}

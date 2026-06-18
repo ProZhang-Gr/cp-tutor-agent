@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from config import settings
-from core import agents, auth, guard, profile, progress, sandbox
+from core import agents, auth, billing, guard, profile, progress, sandbox
 from core.llm import get_llm
 from core.rag import get_bank
 from core.workflow import run_analysis_stream, run_eval_stream
@@ -70,14 +70,23 @@ def _ip(request):
 
 
 def _abuse_block(request, uid, endpoint):
-    """限流/配额守门：放行返回 None，拦截返回 429 响应。"""
-    ok, msg = guard.check_and_log(_ip(request), uid, endpoint)
+    """限流/配额守门：放行返回 None，拦截返回 429 响应。
+
+    Pro（credits>0）不受每日配额限制，但每次调用消耗 1 算力点；
+    余额耗尽或普通用户则走每日配额。限流与审计对所有人生效。
+    """
+    ip = _ip(request)
+    if billing.get_status(uid)["is_pro"] and billing.spend(uid, 1) is not None:
+        ok, msg = guard.check_and_log(ip, uid, endpoint, is_pro=True)
+    else:
+        ok, msg = guard.check_and_log(ip, uid, endpoint, is_pro=False)
     return None if ok else JSONResponse({"error": msg}, status_code=429)
 
 
 # ------------------------- 请求模型 -------------------------
 class AnalyzeReq(BaseModel):
     problem: str
+    deep: bool = False   # Pro 深度分析（额外输出解题推演）
 
 
 class EvaluateReq(BaseModel):
@@ -160,12 +169,26 @@ def logout(resp: Response):
 def me(arena_session: str = Cookie(default=None)):
     uid = _uid(arena_session)
     if uid is None:
-        return {"user": None, "profile": profile.build_profile(None)}
+        return {"user": None, "profile": profile.build_profile(None), "billing": billing.get_status(None)}
     user = auth.get_user_by_id(uid)
     if not user:
-        return {"user": None, "profile": profile.build_profile(None)}
+        return {"user": None, "profile": profile.build_profile(None), "billing": billing.get_status(None)}
     return {"user": {"id": user["id"], "username": user["username"]},
-            "profile": profile.build_profile(uid)}
+            "profile": profile.build_profile(uid),
+            "billing": billing.get_status(uid)}
+
+
+class RechargeReq(BaseModel):
+    yuan: int = 10
+
+
+@app.post("/api/recharge")
+def recharge(req: RechargeReq, arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+    if uid is None:
+        return JSONResponse({"error": "请先登录再充值"}, status_code=401)
+    bal = billing.recharge(uid, req.yuan)
+    return {"credits": bal, "is_pro": (bal or 0) > 0}
 
 
 # ------------------------- 题库 -------------------------
@@ -205,14 +228,16 @@ def save_problem(req: SaveProblemReq, arena_session: str = Cookie(default=None))
 def analyze(req: AnalyzeReq, request: Request, arena_session: str = Cookie(default=None)):
     if len(req.problem) > settings.MAX_PROBLEM_CHARS:
         return JSONResponse({"error": "题面过长（上限 %d 字）" % settings.MAX_PROBLEM_CHARS}, status_code=400)
-    blocked = _abuse_block(request, _uid(arena_session), "analyze")
+    uid = _uid(arena_session)
+    blocked = _abuse_block(request, uid, "analyze")
     if blocked:
         return blocked
+    deep = bool(req.deep) and billing.get_status(uid)["is_pro"]   # 深度分析仅 Pro 可用
 
     def gen():
         yield sse({"event": "start", "pipeline": ["retrieve", "analyze", "plan"]})
         try:
-            for node, delta in run_analysis_stream(req.problem):
+            for node, delta in run_analysis_stream(req.problem, deep=deep):
                 yield sse({"event": "node", "node": node, "data": delta})
             yield sse({"event": "done"})
         except Exception as e:

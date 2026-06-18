@@ -183,7 +183,8 @@ async function runAnalyze() {
   hintLevel = 0; hintHistory = []; $("#hint-level-num").textContent = "0"; $("#hint-box").innerHTML = "";
 
   try {
-    await sseStream("/api/analyze", { problem }, (ev) => {
+    const deep = $("#deep-check") && $("#deep-check").checked && currentBilling.is_pro;
+    await sseStream("/api/analyze", { problem, deep }, (ev) => {
       if (ev.event !== "node") { if (ev.event === "error") toast("分析出错：" + ev.message); return; }
       const aid = NODE2AGENT[ev.node];
       if (aid) setAgent(aid, "done");
@@ -247,6 +248,8 @@ function renderAnalysis(a) {
   $("#ana-stars").textContent = "★".repeat(Math.round(score / 2)) + "☆".repeat(5 - Math.round(score / 2));
   $("#ana-complexity").textContent = a.target_complexity || "—";
   $("#ana-insight").textContent = a.key_insight || "—";
+  if (a.deep_dive) { $("#ana-deepdive").textContent = a.deep_dive; $("#ana-deepdive-wrap").classList.remove("hidden"); }
+  else $("#ana-deepdive-wrap").classList.add("hidden");
   $("#ana-pitfalls").innerHTML = (a.pitfalls || []).map(p => `<li>${esc(p)}</li>`).join("") || "<li>—</li>";
   $("#ana-knowledge").innerHTML = (a.knowledge_points || []).map(k => `<span class="chip">${esc(k)}</span>`).join("");
   return true;
@@ -661,24 +664,29 @@ function bind() {
 }
 
 /* ---------------- 认证 / 画像 ---------------- */
-let currentUser = null, currentProfile = null, authMode = "login";
+let currentUser = null, currentProfile = null, currentBilling = { credits: 0, is_pro: false }, authMode = "login";
 
 async function loadMe() {
   try {
     const r = await fetch("/api/me").then(r => r.json());
-    currentUser = r.user; currentProfile = r.profile;
+    currentUser = r.user; currentProfile = r.profile; currentBilling = r.billing || currentBilling;
     renderAuthArea(); renderAdaptiveNote();
   } catch (e) {}
 }
 function renderAuthArea() {
   const a = $("#auth-area");
   if (currentUser) {
-    const p = currentProfile || {};
+    const p = currentProfile || {}, b = currentBilling || {};
+    const member = b.is_pro
+      ? `<span class="pro-badge" title="算力点 ${b.credits}">PRO · ${b.credits}点</span>`
+      : `<span class="credits-chip">${b.credits || 0} 点</span>`;
     a.innerHTML = `<span class="user-chip">
         <span class="user-name">${esc(currentUser.username)}</span>
         <span class="tier-badge ${p.tier || "novice"}" title="${esc(p.summary || "")}">${esc(p.tier_label || "新手")}</span>
-      </span><button class="logout-btn" id="logout-btn">退出</button>`;
+        ${member}
+      </span><button class="recharge-link" id="recharge-btn">充值</button><button class="logout-btn" id="logout-btn">退出</button>`;
     $("#logout-btn").onclick = logout;
+    $("#recharge-btn").onclick = () => $("#recharge-modal").classList.remove("hidden");
   } else {
     a.innerHTML = `<button class="auth-btn ghost" data-open="login">登录</button>
                    <button class="auth-btn" data-open="register">注册</button>`;
@@ -723,12 +731,34 @@ async function logout() {
   await loadMe(); toast("已退出");
   if ($("#view-dashboard").classList.contains("active")) loadDashboard();
 }
+async function recharge(yuan) {
+  try {
+    const r = await fetch("/api/recharge", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ yuan }),
+    }).then(r => r.json());
+    if (r.error) return toast(r.error);
+    $("#recharge-modal").classList.add("hidden");
+    await loadMe();
+    toast("✨ 充值成功，当前 " + r.credits + " 算力点，Pro 已开通");
+  } catch (e) { toast("充值失败"); }
+}
 function bindAuth() {
   $("#auth-close").onclick = closeAuth;
   $("#auth-submit").onclick = submitAuth;
-  $$(".modal-tab").forEach(t => t.onclick = () => openAuth(t.dataset.auth));
+  $$("#auth-modal .modal-tab").forEach(t => t.onclick = () => openAuth(t.dataset.auth));
   $("#auth-modal").onclick = (e) => { if (e.target.id === "auth-modal") closeAuth(); };
   $("#auth-password").onkeydown = (e) => { if (e.key === "Enter") submitAuth(); };
+  // 充值
+  $("#recharge-close").onclick = () => $("#recharge-modal").classList.add("hidden");
+  $("#recharge-modal").onclick = (e) => { if (e.target.id === "recharge-modal") $("#recharge-modal").classList.add("hidden"); };
+  $$("#recharge-pkgs .pkg").forEach(b => b.onclick = () => recharge(parseInt(b.dataset.yuan)));
+  // 深度分析仅 Pro
+  $("#deep-check").onchange = (e) => {
+    if (e.target.checked && !currentBilling.is_pro) {
+      toast("深度分析是 Pro 功能，请先充值开通"); e.target.checked = false;
+    }
+  };
 }
 
 /* ---------------- 启动 ---------------- */

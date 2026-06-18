@@ -23,6 +23,7 @@ from core.rag import get_bank
 # ===================== 分析流 =====================
 class AnalysisState(TypedDict):
     problem: str
+    deep: bool
     similar: List[Dict[str, Any]]
     analysis: Dict[str, Any]
     strategies: Dict[str, Any]
@@ -33,7 +34,7 @@ def _node_retrieve(state):
 
 
 def _node_analyze(state):
-    return {"analysis": agents.analyze(state["problem"])}
+    return {"analysis": agents.analyze(state["problem"], deep=state.get("deep", False))}
 
 
 def _node_plan(state):
@@ -146,9 +147,9 @@ ANALYSIS_GRAPH = _build_analysis_graph()
 EVAL_GRAPH = _build_eval_graph()
 
 
-def run_analysis_stream(problem):
+def run_analysis_stream(problem, deep=False):
     """逐节点产出 (node_name, delta)。"""
-    for update in ANALYSIS_GRAPH.stream({"problem": problem},
+    for update in ANALYSIS_GRAPH.stream({"problem": problem, "deep": deep},
                                         stream_mode="updates"):
         for node, delta in update.items():
             yield node, delta

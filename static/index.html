@@ -51,6 +51,7 @@
       <textarea id="problem-input" class="problem-input"
         placeholder="粘贴题目描述（含输入/输出格式与样例），或从上方题库选择。&#10;可拖拽右下角调整高度。"></textarea>
       <button id="btn-analyze" class="btn btn-primary btn-block">▶ 启动智能体分析</button>
+      <label class="deep-toggle"><input type="checkbox" id="deep-check"> 🧠 深度分析 <span class="pro-tag">PRO</span></label>
 
       <div id="analysis-result" class="analysis hidden">
         <div class="sec-head sub"><span class="sec-no">02</span><h2>题目剖析</h2></div>
@@ -66,6 +67,7 @@
           </div>
           <div class="ana-item"><label>目标复杂度</label><div id="ana-complexity" class="mono">—</div></div>
           <div class="ana-item accent"><label>核心突破口</label><div id="ana-insight">—</div></div>
+          <div id="ana-deepdive-wrap" class="ana-item deep hidden"><label>🧠 解题推演 · PRO</label><div id="ana-deepdive"></div></div>
           <div class="ana-block"><label>易错点</label><ul id="ana-pitfalls"></ul></div>
           <div class="ana-block"><label>知识点</label><div id="ana-knowledge" class="chips"></div></div>
           <div class="ana-block"><label>相似题 · 举一反三</label><div id="ana-similar" class="chips"></div></div>
@@ -194,6 +196,20 @@
     <div class="auth-err" id="auth-err"></div>
     <button class="btn btn-primary btn-block" id="auth-submit">登录</button>
     <div class="auth-hint">游客也能直接用全部功能。登录后会记录你的学习历史，并按你的水平画像<b>因材施教</b>。</div>
+  </div>
+</div>
+
+<!-- 充值（模拟）弹窗 -->
+<div class="modal-overlay hidden" id="recharge-modal">
+  <div class="modal">
+    <button class="modal-close" id="recharge-close">×</button>
+    <div class="modal-tabs"><button class="modal-tab active">充值算力点</button></div>
+    <div class="recharge-pkgs" id="recharge-pkgs">
+      <button class="pkg" data-yuan="6">¥6 → 60 点</button>
+      <button class="pkg" data-yuan="30">¥30 → 300 点</button>
+      <button class="pkg" data-yuan="98">¥98 → 980 点</button>
+    </div>
+    <div class="auth-hint">演示用模拟充值，不接真实支付。Pro 不受每日额度限制，每次调用消耗 1 点。</div>
   </div>
 </div>
 
