@@ -7,6 +7,7 @@ RAG 题库、代码沙箱与学习进度，并托管前端静态页面。
 启动：  python -m uvicorn app:app --reload --port 8000
 """
 import json
+import os
 
 from fastapi import Cookie, FastAPI, Response
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -21,7 +22,22 @@ from core.workflow import run_analysis_stream, run_eval_stream
 
 app = FastAPI(title="算法竞赛辅导智能体")
 
-progress.init_db()
+
+def _init_db():
+    """启动时将数据库迁移到最新版本；迁移不可用时回退到按模型建表。"""
+    try:
+        from alembic import command
+        from alembic.config import Config
+        cfg = Config(os.path.join(settings.ROOT, "alembic.ini"))
+        cfg.set_main_option("script_location", os.path.join(settings.ROOT, "migrations"))
+        command.upgrade(cfg, "head")
+    except Exception as e:  # 迁移异常不应阻断启动
+        print("[db] alembic upgrade 失败(%s)，回退 create_all" % e)
+        from core.db import create_all
+        create_all()
+
+
+_init_db()
 
 COOKIE = "arena_session"
 

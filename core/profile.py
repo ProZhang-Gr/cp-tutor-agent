@@ -3,7 +3,10 @@
 
 档位只用于调整教学策略与挑战强度，不改变对学生的尊重与鼓励。
 """
-from core import db
+from sqlalchemy import select
+
+from core.db import session_scope
+from core.models import Submission
 
 HARD = ("困难", "竞赛级")
 
@@ -11,29 +14,30 @@ HARD = ("困难", "竞赛级")
 def build_profile(user_id):
     if user_id is None:
         return _empty()
-    rows = db.query("SELECT * FROM submissions WHERE user_id = ?", (user_id,))
+    with session_scope() as s:
+        rows = list(s.scalars(select(Submission).where(Submission.user_id == user_id)))
     total = len(rows)
     if total == 0:
         return _empty()
 
-    solved = sum(1 for r in rows if r["passed"])
+    solved = sum(1 for r in rows if r.passed)
     rate = round(100 * solved / total)
-    solved_hard = any(r["passed"] and (r["difficulty"] in HARD) for r in rows)
+    solved_hard = any(r.passed and (r.difficulty in HARD) for r in rows)
 
     # 题型通过率
     by_type = {}
     for r in rows:
-        t = r["problem_type"] or "其他"
+        t = r.problem_type or "其他"
         by_type.setdefault(t, {"total": 0, "passed": 0})
         by_type[t]["total"] += 1
-        by_type[t]["passed"] += 1 if r["passed"] else 0
+        by_type[t]["passed"] += 1 if r.passed else 0
     weak = [t for t, d in by_type.items() if d["total"] >= 2 and d["passed"] / d["total"] < 0.5]
     strong = [t for t, d in by_type.items() if d["total"] >= 2 and d["passed"] / d["total"] >= 0.8]
 
     # 常见错误（非 AC）
     err = {}
     for r in rows:
-        k = r["error_kind"] or "AC"
+        k = r.error_kind or "AC"
         if k != "AC":
             err[k] = err.get(k, 0) + 1
     common_errors = [k for k, _ in sorted(err.items(), key=lambda x: -x[1])[:2]]

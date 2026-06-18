@@ -6,8 +6,11 @@ import os
 import re
 import time
 
+from sqlalchemy import select
+
 from config import settings
-from core import db
+from core.db import session_scope
+from core.models import User
 
 _SECRET = settings.SECRET_KEY.encode()
 
@@ -58,23 +61,30 @@ def validate_credentials(username, password):
 
 
 def get_user_by_name(username):
-    return db.query_one("SELECT * FROM users WHERE username = ?", (username,))
+    with session_scope() as s:
+        u = s.scalar(select(User).where(User.username == username))
+        if not u:
+            return None
+        return {"id": u.id, "username": u.username, "pw_hash": u.pw_hash, "salt": u.salt}
 
 
 def get_user_by_id(uid):
-    return db.query_one("SELECT id, username, created_at FROM users WHERE id = ?", (uid,))
+    with session_scope() as s:
+        u = s.get(User, uid)
+        if not u:
+            return None
+        return {"id": u.id, "username": u.username, "created_at": u.created_at}
 
 
 def create_user(username, password):
     if get_user_by_name(username):
         return None, "用户名已存在"
     pw_hash, salt = hash_password(password)
-    db.execute(
-        "INSERT INTO users (username, pw_hash, salt, created_at) VALUES (?,?,?,?)",
-        (username, pw_hash, salt, time.time()),
-    )
-    user = get_user_by_name(username)
-    return {"id": user["id"], "username": user["username"]}, None
+    with session_scope() as s:
+        u = User(username=username, pw_hash=pw_hash, salt=salt, created_at=time.time())
+        s.add(u)
+        s.flush()
+        return {"id": u.id, "username": u.username}, None
 
 
 def authenticate(username, password):

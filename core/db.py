@@ -1,99 +1,55 @@
 # -*- coding: utf-8 -*-
-"""数据库抽象层：默认 SQLite，设了 DATABASE_URL(Postgres) 则切换为持久化。
+"""数据库引擎与会话（SQLAlchemy 2.0）。
 
-统一用 ? 占位符写 SQL，Postgres 下自动转成 %s。
-连接按调用即开即关，低并发的教学/演示场景足够稳。
+默认本地 SQLite；设了 DATABASE_URL 则用 PostgreSQL（带连接池）。
+Render / Neon 常给 `postgres://`，这里规范化为 SQLAlchemy 所需的驱动 URL。
 """
 import os
-import sqlite3
+from contextlib import contextmanager
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from config import settings
-
-DATABASE_URL = settings.DATABASE_URL
-IS_PG = DATABASE_URL.startswith("postgres")
-
-if IS_PG:
-    import psycopg2
-    import psycopg2.extras
+from core.models import Base
 
 
-def _conn():
-    if IS_PG:
-        return psycopg2.connect(DATABASE_URL)
-    os.makedirs(os.path.dirname(settings.DB_PATH), exist_ok=True)
-    c = sqlite3.connect(settings.DB_PATH)
-    c.row_factory = sqlite3.Row
-    return c
+def _normalize(url):
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg2://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg2://" + url[len("postgresql://"):]
+    return url
 
 
-def _adapt(sql):
-    return sql.replace("?", "%s") if IS_PG else sql
+def _make_engine():
+    url = settings.DATABASE_URL
+    if url:
+        return create_engine(_normalize(url), pool_pre_ping=True,
+                             pool_size=5, max_overflow=10, future=True)
+    os.makedirs(settings.DATA_DIR, exist_ok=True)
+    return create_engine("sqlite:///" + settings.DB_PATH,
+                         connect_args={"check_same_thread": False}, future=True)
 
 
-def execute(sql, params=()):
-    """执行写操作，返回新插入行的 id（若适用）。"""
-    conn = _conn()
-    cur = conn.cursor()
-    cur.execute(_adapt(sql), params)
-    new_id = None
+engine = _make_engine()
+SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+
+
+@contextmanager
+def session_scope():
+    """事务性会话：正常提交、异常回滚、最终关闭。"""
+    s = SessionLocal()
     try:
-        if IS_PG and "RETURNING" in sql.upper():
-            new_id = cur.fetchone()[0]
-        elif not IS_PG:
-            new_id = cur.lastrowid
+        yield s
+        s.commit()
     except Exception:
-        new_id = None
-    conn.commit()
-    cur.close()
-    conn.close()
-    return new_id
+        s.rollback()
+        raise
+    finally:
+        s.close()
 
 
-def query(sql, params=()):
-    conn = _conn()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if IS_PG else conn.cursor()
-    cur.execute(_adapt(sql), params)
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    return [dict(r) for r in rows]
-
-
-def query_one(sql, params=()):
-    rows = query(sql, params)
-    return rows[0] if rows else None
-
-
-def init_schema():
-    idtype = "SERIAL PRIMARY KEY" if IS_PG else "INTEGER PRIMARY KEY AUTOINCREMENT"
-    real = "DOUBLE PRECISION" if IS_PG else "REAL"
-    execute("""CREATE TABLE IF NOT EXISTS users (
-        id %s,
-        username TEXT UNIQUE NOT NULL,
-        pw_hash  TEXT NOT NULL,
-        salt     TEXT NOT NULL,
-        created_at %s
-    )""" % (idtype, real))
-    execute("""CREATE TABLE IF NOT EXISTS submissions (
-        id %s,
-        user_id INTEGER,
-        ts %s,
-        problem_id    TEXT,
-        problem_title TEXT,
-        problem_type  TEXT,
-        difficulty    TEXT,
-        passed       INTEGER,
-        tests_passed INTEGER,
-        tests_total  INTEGER,
-        score        INTEGER,
-        error_kind   TEXT
-    )""" % (idtype, real))
-    execute("""CREATE TABLE IF NOT EXISTS user_problems (
-        id %s,
-        user_id INTEGER,
-        title       TEXT,
-        type        TEXT,
-        difficulty  TEXT,
-        description TEXT,
-        created_at  %s
-    )""" % (idtype, real))
+def create_all():
+    """按 ORM 模型建表（幂等）。生产以 Alembic 迁移为准，此为兜底。"""
+    Base.metadata.create_all(engine)
