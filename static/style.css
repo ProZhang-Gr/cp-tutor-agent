@@ -234,7 +234,7 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 .dbg-thought b{color:var(--accent)}
 .dbg-step-no{font-family:var(--font-mono);font-size:9.5px;font-weight:700;color:var(--accent);
   background:var(--accent-tint);border-radius:10px;padding:2px 8px;letter-spacing:.5px}
-.dbg-thought-body{color:var(--ink);line-height:1.7;font-size:12.5px}
+.dbg-thought-body{color:var(--ink);line-height:1.7;font-size:12.5px;max-height:220px;overflow:auto}
 .dbg-thought-body p{margin:0 0 6px}
 .dbg-thought-body p:last-child{margin-bottom:0}
 .dbg-thought-body ul,.dbg-thought-body ol{margin:4px 0 6px;padding-left:18px;line-height:1.7}
