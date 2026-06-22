@@ -277,6 +277,18 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 .team-prog{display:block;height:100%;width:0;border-radius:20px;
   background:linear-gradient(90deg,var(--accent),#3aa493);transition:width .45s cubic-bezier(.2,.8,.2,1)}
 
+/* 右栏可折叠分区：苏格拉底导师 / 导师审阅 / 导师对话 */
+.panel{margin-top:18px}
+.panel-head{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;
+  padding:4px 2px 9px;cursor:pointer;font-family:inherit;border-bottom:1px solid var(--line-soft);transition:.15s}
+.panel-head:hover h2{color:var(--accent)}
+.panel-head h2{font-family:var(--font-display);font-weight:600;font-size:17px;letter-spacing:.3px;color:var(--ink);
+  flex:1;text-align:left;transition:.15s}
+.panel-chevron{flex-shrink:0;color:var(--ink-mute);font-size:12px;transition:transform .2s}
+.panel.collapsed .panel-chevron{transform:rotate(-90deg)}
+.panel-body{margin-top:12px}
+.panel.collapsed .panel-body{display:none}
+
 .agent-team{display:none;flex-direction:column;gap:6px;margin-top:8px}
 .team.open .agent-team{display:flex}
 .agent{display:flex;align-items:center;gap:10px;padding:7px 11px;background:var(--tint);
@@ -298,7 +310,6 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 .agent.done .a-state{background:rgba(60,139,87,.14);color:var(--ok);border-color:rgba(60,139,87,.35)}
 
 /* ===================== 导师 ===================== */
-.tutor{display:flex;flex-direction:column;min-height:0}
 .hint-level{font-family:var(--font-mono);font-size:11px;color:var(--ink-mute);letter-spacing:.5px}
 .hint-level span{color:var(--accent);font-weight:700}
 .hint-box{margin-top:11px;max-height:280px;overflow:auto}
@@ -447,13 +458,13 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 
 /* ===================== 题库浮层下拉 ===================== */
 .pb-dropdown{position:relative}
-.pb-toggle{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-body);font-size:12.5px;
-  background:var(--field);border:1px solid var(--line);color:var(--ink-dim);padding:6px 11px;border-radius:var(--r-sm);
-  cursor:pointer;transition:.16s;max-width:200px}
-.pb-toggle:hover{border-color:var(--accent);color:var(--ink)}
-.pb-dropdown.open .pb-toggle{border-color:var(--accent);color:var(--accent);background:var(--accent-tint)}
+.pb-toggle{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-body);font-size:12.5px;font-weight:600;
+  background:var(--accent-tint);color:var(--accent);border:1px solid rgba(31,111,102,.35);
+  padding:7px 13px;border-radius:20px;cursor:pointer;transition:.16s;max-width:210px}
+.pb-toggle:hover{background:rgba(31,111,102,.16);border-color:var(--accent)}
+.pb-dropdown.open .pb-toggle{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.pb-toggle-ico{font-size:13px;flex-shrink:0;line-height:1}
 .pb-toggle #pb-current{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pb-caret{color:var(--ink-mute);font-size:10px;flex-shrink:0}
 /* 左侧抽屉 + 变暗遮罩 */
 .pb-overlay{position:fixed;inset:0;z-index:90;background:rgba(40,32,18,.5);backdrop-filter:blur(2px);
   opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s}
@@ -520,16 +531,6 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 .io-resize::before{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   width:38px;height:3px;border-radius:3px;background:#cdbf9f;transition:.15s}
 .io-resize:hover::before{background:var(--accent);width:54px}
-
-/* ===================== 差分对拍解释 ===================== */
-.judge-help{margin:9px 0 4px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--r-sm);
-  font-size:12px;color:var(--ink-dim)}
-.judge-help summary{cursor:pointer;padding:8px 11px;color:var(--accent);font-weight:600;user-select:none;list-style:none}
-.judge-help summary::-webkit-details-marker{display:none}
-.judge-help summary::before{content:"？ ";font-weight:700}
-.judge-help[open] summary{border-bottom:1px solid var(--line)}
-.judge-help div{padding:10px 12px;line-height:1.75}
-.judge-help b{color:var(--ink)}
 
 /* ===================== 导师审阅：按钮 / 批注面板 ===================== */
 .btn-review{margin-top:10px;background:var(--paper);color:var(--violet);border-color:var(--violet)}

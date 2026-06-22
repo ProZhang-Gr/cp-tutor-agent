@@ -113,18 +113,13 @@ def _node_summarize(state):
     else:
         verdict, kind = "已完成静态审查", "AC" if score >= 60 else "WA"
 
-    # 综合分：判题裁决是铁证，主导评分；审查分仅作小幅风格加成。
-    review_bonus = min(max(score, 0), 100) * 0.05  # 0~5 分风格加成
+    # 综合分：直接按通过的测试用例占比给分，简单可解释（得分 = 通过用例 / 总用例）。
     if kind == "CE":
-        final = min(score, 20)
-    elif jv == "AC" and total > 0:
-        base = 95 if mode == "truth" else 85   # 对拍是经验性结论，略保守
-        final = round(min(100, base + review_bonus))
-    elif jv in ("WA", "TLE", "RE") and total > 0:
-        # 过了多少给多少（最高 55），再加风格分
-        final = round(min(60, (passed / total) * 55 + review_bonus))
+        final = 0                              # 编译/语法错误，无法判题
+    elif total > 0:
+        final = round(100 * passed / total)    # 通过几成给几成
     else:
-        final = score  # 仅静态审查
+        final = score                          # 无可判用例（无官方数据且无法对拍）→ 退回静态审查分
 
     return {"summary": {
         "verdict": verdict,

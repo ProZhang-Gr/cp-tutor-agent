@@ -91,6 +91,7 @@ function updateTeamProgress() {
    点状态条仍可手动展开查看各智能体职责。 */
 function setTeamOpenClass(open) { $("#team").classList.toggle("open", open); }
 function toggleTeam() { setTeamOpenClass(!$("#team").classList.contains("open")); }
+function expandPanel(name) { const p = $("#panel-" + name); if (p) p.classList.remove("collapsed"); }
 
 /* Monaco */
 require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs" } });
@@ -125,7 +126,8 @@ require(["vs/editor/editor.main"], () => {
     // 自动补全
     quickSuggestions: { other: true, comments: false, strings: false },
     suggestOnTriggerCharacters: true, tabCompletion: "on",
-    wordBasedSuggestions: true, suggestSelection: "first",
+    wordBasedSuggestions: "allDocuments",   // 0.45 用字符串枚举；传 true 会失效
+    suggest: { showWords: true, showSnippets: true, preview: true },
   });
   registerPyCompletions();
   // 恢复上次代码
@@ -390,17 +392,6 @@ function renderTests(judge) {
     ? `🟢 真值判定 · 官方测试数据 ${judge.passed}/${judge.total} 通过`
     : `🟡 差分对拍 · 暴力解当真值${judge.stress ? "（" + esc(judge.stress.note) + "）" : ""}`;
 
-  // 差分对拍对很多人陌生，给一个可展开的「这是什么」解释
-  const stressHelp = mode === "stress" ? `
-    <details class="judge-help">
-      <summary>差分对拍是什么？为什么不是 100% 确定？</summary>
-      <div>这道题<b>没有官方测试数据</b>，系统无从知道「正确答案」。于是判题官让 AI 现写两段程序：
-        ①一个<b>暴力解</b>（笨但几乎一定对、只是慢），②一个<b>随机数据生成器</b>。
-        先用题面样例确认暴力解可信，再生成大量随机输入，把<b>你的解</b>和<b>暴力解</b>在同一输入上的输出逐一比对——
-        <b>第一个不一致的输入，就是你代码的最小反例</b>。这正是竞赛选手手动「对拍」的自动化版：用慢而正确的程序给快而可能错的程序当裁判。
-        局限：它是<b>经验性结论</b>（没找到反例 ≠ 数学证明正确），所以对拍通过的给分会比真值判定保守一些。</div>
-    </details>` : "";
-
   // 最小反例 + 调试入口（最重要，放最上面）
   let counterHtml = "";
   const ce = judge.counterexample;
@@ -431,7 +422,7 @@ function renderTests(judge) {
     </div>`).join("");
 
   $("#test-results").innerHTML =
-    `<div class="judge-mode ${mode}">${modeLabel}</div>` + stressHelp + counterHtml +
+    `<div class="judge-mode ${mode}">${modeLabel}</div>` + counterHtml +
     (cases ? `<div class="cases-wrap">${cases}</div>` : "");
 }
 
@@ -510,6 +501,7 @@ async function requestHint() {
   const problem = $("#problem-input").value.trim();
   if (!problem) return toast("请先输入题目");
   if (isKnownNonProblem()) return nonProblemHint();
+  expandPanel("tutor");
   if (hintLevel >= 4) return toast("已到最深提示层级");
   hintLevel++;
   $("#hint-level-num").textContent = hintLevel;
@@ -542,6 +534,7 @@ function addHintEntry(label, text) {
 async function sendChat() {
   const q = $("#chat-input").value.trim();
   if (!q) return;
+  expandPanel("chat");
   $("#chat-input").value = "";
   const sel = pendingSelection;
   addMsg("user", q + (sel ? "  〔已引用选中代码 " + sel.split("\n").length + " 行〕" : ""));
@@ -594,6 +587,7 @@ const SEV_LABEL = { high: "严重", med: "注意", low: "建议" };
 async function requestReview() {
   const code = editor ? editor.getValue() : "";
   if (!code.trim()) return toast("请先在编辑器里写代码");
+  expandPanel("review");
   const btn = $("#btn-review");
   const old = btn.textContent;
   btn.disabled = true; btn.textContent = "🔎 导师审阅中…";
@@ -1137,6 +1131,7 @@ function bind() {
   $("#btn-quote").onclick = captureSelection;
   $("#quote-clear").onclick = clearQuote;
   $("#team-strip").onclick = toggleTeam;
+  $$(".panel-head").forEach(h => h.onclick = () => h.closest(".panel").classList.toggle("collapsed"));
   $("#btn-ask-tutor").onclick = askTutorAbout;
   $("#btn-gen-report").onclick = genReport;
   $("#btn-dl-report").onclick = downloadReport;
