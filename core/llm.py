@@ -15,7 +15,7 @@ from config import settings
 
 
 def get_llm(temperature=0.3, model=None, streaming=False, max_tokens=2048):
-    """普通对话 LLM。"""
+    """普通对话 LLM。带网络重试与超时，避免抖动直接打断。"""
     return ChatOpenAI(
         model=model or settings.MODEL_CHAT,
         api_key=settings.DEEPSEEK_API_KEY,
@@ -23,17 +23,21 @@ def get_llm(temperature=0.3, model=None, streaming=False, max_tokens=2048):
         temperature=temperature,
         streaming=streaming,
         max_tokens=max_tokens,
+        max_retries=settings.LLM_MAX_RETRIES,
+        timeout=settings.LLM_TIMEOUT,
     )
 
 
 def get_json_llm(temperature=0.2, model=None, max_tokens=2048):
-    """强制 JSON 输出的 LLM（DeepSeek 支持 response_format=json_object）。"""
+    """强制 JSON 输出的 LLM（DeepSeek 支持 response_format=json_object）。带重试与超时。"""
     return ChatOpenAI(
         model=model or settings.MODEL_CHAT,
         api_key=settings.DEEPSEEK_API_KEY,
         base_url=settings.BASE_URL,
         temperature=temperature,
         max_tokens=max_tokens,
+        max_retries=settings.LLM_MAX_RETRIES,
+        timeout=settings.LLM_TIMEOUT,
         model_kwargs={"response_format": {"type": "json_object"}},
     )
 

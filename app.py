@@ -40,6 +40,11 @@ def _init_db():
 
 _init_db()
 
+# 启动自检：缺 API Key 时醒目告警（不阻断启动，但首个 LLM 请求必然失败）
+if not settings.DEEPSEEK_API_KEY:
+    print("[startup] 警告：未检测到 DEEPSEEK_API_KEY（环境变量或 .deepseek_key 文件均为空），"
+          "所有 LLM 功能将报错。请配置后重启。")
+
 COOKIE = "arena_session"
 
 
@@ -148,7 +153,8 @@ class AuthReq(BaseModel):
 # ------------------------- 认证 -------------------------
 def _set_login(resp, uid):
     token = auth.make_token(uid)
-    resp.set_cookie(COOKIE, token, httponly=True, samesite="lax", max_age=30 * 24 * 3600)
+    resp.set_cookie(COOKIE, token, httponly=True, samesite="lax",
+                    secure=settings.COOKIE_SECURE, max_age=30 * 24 * 3600)
 
 
 @app.post("/api/register")

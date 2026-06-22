@@ -21,15 +21,37 @@ def _load_api_key():
     return ""
 
 
+def _load_secret_key():
+    """登录态签名密钥：优先环境变量；未设置则生成临时随机密钥并告警。
+
+    不再使用硬编码默认值——否则任何忘记设环境变量的部署都共享同一密钥，
+    攻击者可据此伪造任意用户的会话。临时密钥在进程重启后失效（登录态作废），
+    生产环境务必通过环境变量固定 SECRET_KEY。
+    """
+    key = os.getenv("SECRET_KEY", "").strip()
+    if key:
+        return key
+    import secrets
+    print("[config] 警告：未设置 SECRET_KEY 环境变量，已生成临时随机密钥；"
+          "进程重启后登录态会失效。生产环境请在环境变量里固定 SECRET_KEY。")
+    return secrets.token_hex(32)
+
+
 class Settings:
     # DeepSeek（OpenAI 兼容协议）
     DEEPSEEK_API_KEY = _load_api_key()
     BASE_URL = "https://api.deepseek.com"
 
-    # 登录态签名密钥（生产环境用环境变量覆盖）
-    SECRET_KEY = os.getenv("SECRET_KEY", "arena-dev-secret-change-in-prod")
+    # 登录态签名密钥（生产环境用环境变量覆盖；缺省随机生成）
+    SECRET_KEY = _load_secret_key()
     # 数据库：设了 DATABASE_URL（Postgres）则持久化，否则用本地 SQLite
     DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+    # 仅在 HTTPS 下下发 Secure Cookie：Render 自动注入 RENDER 变量；本地 http 保持 False 以免登录失效
+    COOKIE_SECURE = (os.getenv("COOKIE_SECURE", "").strip().lower() in ("1", "true", "yes")
+                     or bool(os.getenv("RENDER")))
+    # LLM 调用稳健性
+    LLM_MAX_RETRIES = 2        # 网络抖动时自动重试次数
+    LLM_TIMEOUT = 120          # 单次请求超时（秒）
 
     # deepseek-chat = V3 通用模型；deepseek-reasoner = R1 深度推理模型
     MODEL_CHAT = "deepseek-chat"

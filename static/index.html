@@ -45,31 +45,14 @@
       <div class="sec-head">
         <span class="sec-no">01</span><h2>题目</h2>
         <div class="pb-dropdown" id="pb-dropdown">
-          <button type="button" id="pb-toggle" class="pb-toggle" title="从题库选择题目">
+          <button type="button" id="pb-toggle" class="pb-toggle" title="打开题库">
             <span id="pb-current">题库</span><span class="pb-caret">▾</span>
           </button>
-          <div id="pb-panel" class="pb-panel hidden">
-            <div class="pb-search-row">
-              <input id="pb-search" class="pb-search" placeholder="🔍 搜索题名 / 知识点…" autocomplete="off">
-              <span class="pb-count" id="pb-count"></span>
-            </div>
-            <div class="pb-filters" id="pb-filters">
-              <button type="button" class="pb-chip active" data-diff="">全部</button>
-              <button type="button" class="pb-chip" data-diff="入门">入门</button>
-              <button type="button" class="pb-chip" data-diff="简单">简单</button>
-              <button type="button" class="pb-chip" data-diff="中等">中等</button>
-              <button type="button" class="pb-chip" data-diff="困难">困难</button>
-              <button type="button" class="pb-chip pb-chip-ac" data-ac="1">只看未过</button>
-            </div>
-            <div id="pb-progress" class="pb-progress"></div>
-            <div id="pb-list" class="pb-list"></div>
-          </div>
         </div>
       </div>
       <textarea id="problem-input" class="problem-input"
-        placeholder="粘贴题目描述（含输入/输出格式与样例），或从上方题库选择。"></textarea>
+        placeholder="粘贴题目描述（含输入/输出格式与样例），或点右上角「题库」选择。"></textarea>
       <div id="problem-display" class="problem-display hidden"></div>
-      <button id="btn-edit-problem" class="btn-edit-problem hidden">✎ 粘贴 / 换一道题</button>
       <button id="btn-analyze" class="btn btn-primary btn-block">▶ 启动智能体分析</button>
       <label class="deep-toggle"><input type="checkbox" id="deep-check"> 🧠 深度分析 <span class="pro-tag">PRO</span></label>
 
@@ -85,12 +68,12 @@
             <span id="ana-diff" class="badge badge-diff">—</span>
             <span id="ana-stars" class="stars"></span>
           </div>
-          <div class="ana-item"><label>目标复杂度</label><div id="ana-complexity" class="mono">—</div></div>
-          <div class="ana-item accent"><label>核心突破口</label><div id="ana-insight">—</div></div>
-          <div id="ana-deepdive-wrap" class="ana-item deep hidden"><label>🧠 解题推演 · PRO</label><div id="ana-deepdive"></div></div>
-          <div class="ana-block"><label>易错点</label><ul id="ana-pitfalls"></ul></div>
-          <div class="ana-block"><label>知识点</label><div id="ana-knowledge" class="chips"></div></div>
-          <div class="ana-block"><label>相似题 · 举一反三</label><div id="ana-similar" class="chips"></div></div>
+          <details class="ana-sec" open><summary>目标复杂度</summary><div id="ana-complexity" class="ana-sec-body mono">—</div></details>
+          <details class="ana-sec accent" open><summary>核心突破口</summary><div id="ana-insight" class="ana-sec-body">—</div></details>
+          <details id="ana-deepdive-wrap" class="ana-sec deep hidden" open><summary>🧠 解题推演 · PRO</summary><div id="ana-deepdive" class="ana-sec-body"></div></details>
+          <details class="ana-sec"><summary>易错点</summary><ul id="ana-pitfalls" class="ana-sec-body"></ul></details>
+          <details class="ana-sec"><summary>知识点</summary><div id="ana-knowledge" class="ana-sec-body chips"></div></details>
+          <details class="ana-sec"><summary>相似题 · 举一反三</summary><div id="ana-similar" class="ana-sec-body chips"></div></details>
         </div>
       </div>
 
@@ -146,12 +129,13 @@
     <!-- 右：智能体团队 + 导师 -->
     <section class="col col-right reveal" id="col-right" style="--d:.19s">
       <div class="team" id="team">
-        <button class="team-strip" id="team-strip" title="点击展开/收起智能体详情">
+        <button class="team-strip" id="team-strip" title="点击展开/收起智能体职责">
           <span class="sec-no">04</span>
           <span class="team-title">智能体团队</span>
           <span class="team-dots" id="team-dots"></span>
           <span class="team-chevron" id="team-chevron">▾</span>
         </button>
+        <div class="team-prog-track"><i id="team-prog" class="team-prog"></i></div>
         <div id="agent-team" class="agent-team"></div>
       </div>
 
@@ -250,6 +234,30 @@
     <div class="auth-hint">演示用模拟充值，不接真实支付。Pro 不受每日额度限制，每次调用消耗 1 点。</div>
   </div>
 </div>
+
+<!-- 题库左侧抽屉 -->
+<div id="pb-overlay" class="pb-overlay"></div>
+<aside id="pb-drawer" class="pb-drawer">
+  <div class="pb-drawer-head">
+    <h3>题库</h3>
+    <span class="pb-count" id="pb-count"></span>
+    <button id="pb-close" class="pb-drawer-close" title="关闭">×</button>
+  </div>
+  <div class="pb-search-row">
+    <input id="pb-search" class="pb-search" placeholder="🔍 搜索题名 / 知识点…" autocomplete="off">
+  </div>
+  <div class="pb-filters" id="pb-filters">
+    <button type="button" class="pb-chip active" data-diff="">全部</button>
+    <button type="button" class="pb-chip" data-diff="入门">入门</button>
+    <button type="button" class="pb-chip" data-diff="简单">简单</button>
+    <button type="button" class="pb-chip" data-diff="中等">中等</button>
+    <button type="button" class="pb-chip" data-diff="困难">困难</button>
+    <button type="button" class="pb-chip pb-chip-ac" data-ac="1">只看未过</button>
+  </div>
+  <div id="pb-progress" class="pb-progress"></div>
+  <button id="pb-paste" class="pb-paste">✎ 粘贴自己的题目</button>
+  <div id="pb-list" class="pb-list"></div>
+</aside>
 
 <!-- 导师修订 diff 预览弹窗 -->
 <div class="modal-overlay hidden" id="diff-modal">

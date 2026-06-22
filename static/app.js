@@ -70,31 +70,27 @@ function setAgent(id, state) {
     dot.classList.remove("working", "done");
     if (state === "working" || state === "done") dot.classList.add(state);
   }
-  // 工作时自动展开秀协作（导师对话不打扰），结束后自动收起
-  if (state === "working" && id !== "tutor") openTeam();
-  if (state === "done") scheduleTeamAutoClose();
+  updateTeamProgress();
 }
-function resetAgents(ids) { ids.forEach(id => setAgent(id, "idle")); }
+let teamRunIds = [];
+function resetAgents(ids) { teamRunIds = ids.slice(); ids.forEach(id => setAgent(id, "idle")); }
+function updateTeamProgress() {
+  const ids = teamRunIds.length ? teamRunIds : AGENTS.map(a => a.id);
+  let done = 0, active = 0;
+  ids.forEach(id => {
+    const e = $(`#agent-${id}`); if (!e) return;
+    if (e.classList.contains("done")) { done++; active++; }
+    else if (e.classList.contains("working")) active++;
+  });
+  const bar = $("#team-prog");
+  if (bar) bar.style.width = (active ? Math.round(100 * done / active) : 0) + "%";
+}
 
-/* ---- 智能体面板：迷你条 / 展开 ----
-   行为：智能体一开始工作就自动展开看协作，全部完成后自动收起为迷你条。
-   点击状态条可临时手动开合，但不会永久钉住——下一次启动智能体仍会自动展开、结束自动收起。 */
-let teamCloseTimer = null;
+/* ---- 智能体面板：常驻迷你状态条 ----
+   不自动展开；图标随状态点亮(工作中脉冲、完成打勾)，下方进度条显示本轮完成度。
+   点状态条仍可手动展开查看各智能体职责。 */
 function setTeamOpenClass(open) { $("#team").classList.toggle("open", open); }
-function openTeam() { clearTimeout(teamCloseTimer); setTeamOpenClass(true); }
-function scheduleTeamAutoClose() {
-  clearTimeout(teamCloseTimer);
-  teamCloseTimer = setTimeout(() => {
-    const busy = AGENTS.some(a => {
-      const e = $(`#agent-${a.id}`); return e && e.classList.contains("working");
-    });
-    if (!busy) setTeamOpenClass(false);         // 没有正在工作的智能体了 → 收起
-  }, 2500);
-}
-function toggleTeam() {                          // 手动开合（临时，不持久化）
-  clearTimeout(teamCloseTimer);
-  setTeamOpenClass(!$("#team").classList.contains("open"));
-}
+function toggleTeam() { setTeamOpenClass(!$("#team").classList.contains("open")); }
 
 /* Monaco */
 require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs" } });
@@ -126,7 +122,12 @@ require(["vs/editor/editor.main"], () => {
     fontFamily: "JetBrains Mono, Consolas, monospace",
     automaticLayout: true, scrollBeyondLastLine: false, padding: { top: 12 },
     glyphMargin: true,   // 供导师审阅在出问题的行打批注图标
+    // 自动补全
+    quickSuggestions: { other: true, comments: false, strings: false },
+    suggestOnTriggerCharacters: true, tabCompletion: "on",
+    wordBasedSuggestions: true, suggestSelection: "first",
   });
+  registerPyCompletions();
   // 恢复上次代码
   const savedCode = localStorage.getItem("cp_code");
   if (savedCode) editor.setValue(savedCode);
@@ -148,6 +149,39 @@ require(["vs/editor/editor.main"], () => {
     run: () => captureSelection(),
   });
 });
+
+/* ---------------- 代码自动补全（Python 常用片段） ---------------- */
+let _pyComplDone = false;
+function registerPyCompletions() {
+  if (_pyComplDone || !window.monaco) return;
+  _pyComplDone = true;
+  const K = monaco.languages.CompletionItemKind;
+  const SNIP = monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
+  const SNIPPETS = [
+    { label: "readall", detail: "读入全部并按空白切分", insert: "data = sys.stdin.buffer.read().split()" },
+    { label: "main", detail: "竞赛 main 模板", insert: "import sys\n\ndef main():\n    data = sys.stdin.buffer.read().split()\n    ${1:pass}\n\nif __name__ == \"__main__\":\n    main()" },
+    { label: "forr", detail: "for i in range(n)", insert: "for ${1:i} in range(${2:n}):\n    ${3:pass}" },
+    { label: "fori", detail: "枚举下标与值", insert: "for ${1:i}, ${2:x} in enumerate(${3:arr}):\n    ${4:pass}" },
+    { label: "readint", detail: "读一个整数", insert: "${1:n} = int(input())" },
+    { label: "readints", detail: "读一行整数到列表", insert: "${1:a} = list(map(int, input().split()))" },
+    { label: "defaultdict", detail: "from collections import defaultdict", insert: "from collections import defaultdict\n${1:d} = defaultdict(${2:int})" },
+    { label: "Counter", detail: "from collections import Counter", insert: "from collections import Counter\n${1:cnt} = Counter(${2:arr})" },
+    { label: "deque", detail: "from collections import deque", insert: "from collections import deque\n${1:q} = deque()" },
+    { label: "heap", detail: "heapq 小根堆", insert: "import heapq\n${1:h} = []\nheapq.heappush(${1:h}, ${2:x})" },
+    { label: "memo", detail: "记忆化搜索装饰器", insert: "from functools import lru_cache\n\n@lru_cache(maxsize=None)\ndef ${1:dfs}(${2:x}):\n    ${3:pass}" },
+  ];
+  monaco.languages.registerCompletionItemProvider("python", {
+    provideCompletionItems(model, position) {
+      const w = model.getWordUntilPosition(position);
+      const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
+                      startColumn: w.startColumn, endColumn: w.endColumn };
+      return { suggestions: SNIPPETS.map(s => ({
+        label: s.label, kind: K.Snippet, detail: s.detail,
+        insertText: s.insert, insertTextRules: SNIP, range,
+      })) };
+    },
+  });
+}
 
 /* ---------------- SSE 流式工具 ---------------- */
 async function sseStream(url, body, onEvent) {
@@ -420,13 +454,15 @@ async function startDebug() {
         if (ev.event === "thought") {
           stepEl = document.createElement("div");
           stepEl.className = "dbg-step";
-          stepEl.innerHTML = `<div class="dbg-thought"><b>💭 第 ${d.step} 步思考</b><div>${esc(d.text)}</div></div>`;
+          stepEl.innerHTML = `<div class="dbg-thought"><span class="dbg-step-no">第 ${d.step} 步</span><b>💭 思考</b></div>
+            <div class="dbg-thought-body">${marked.parse(d.text || "")}</div>`;
           panel.appendChild(stepEl);
         } else if (ev.event === "action") {
           const a = document.createElement("div");
           a.className = "dbg-action";
-          a.innerHTML = `<div class="dbg-label">🔧 运行探针（stdin: ${esc((d.stdin || "").slice(0, 36))}）</div><pre>${esc(d.code || "")}</pre>`;
+          a.innerHTML = `<div class="dbg-label">🔧 运行探针${d.stdin ? " · stdin: " + esc((d.stdin || "").slice(0, 40)) : ""}</div><pre class="dbg-code"></pre>`;
           (stepEl || panel).appendChild(a);
+          highlightInto(a.querySelector(".dbg-code"), d.code || "", "python");
         } else if (ev.event === "observation") {
           const o = document.createElement("div");
           o.className = "dbg-obs";
@@ -814,24 +850,26 @@ function renderProblemList() {
 
 function setPbCurrent(title) { $("#pb-current").textContent = title || "题库"; }
 function openPbPanel() {
-  const panel = $("#pb-panel");
-  panel.classList.remove("hidden");
+  $("#pb-overlay").classList.add("open");
+  $("#pb-drawer").classList.add("open");
   $("#pb-dropdown").classList.add("open");
-  // 浮层用 fixed 定位，避免被左栏 overflow 裁掉；按钮右对齐
-  const r = $("#pb-toggle").getBoundingClientRect();
-  const w = 340;
-  panel.style.width = w + "px";
-  panel.style.top = (r.bottom + 6) + "px";
-  panel.style.left = Math.max(12, r.right - w) + "px";
   renderProblemList();
-  $("#pb-search").focus();
+  setTimeout(() => $("#pb-search").focus(), 60);
 }
 function closePbPanel() {
-  $("#pb-panel").classList.add("hidden");
+  $("#pb-overlay").classList.remove("open");
+  $("#pb-drawer").classList.remove("open");
   $("#pb-dropdown").classList.remove("open");
 }
 function togglePbPanel() {
-  $("#pb-panel").classList.contains("hidden") ? openPbPanel() : closePbPanel();
+  $("#pb-drawer").classList.contains("open") ? closePbPanel() : openPbPanel();
+}
+function pasteNewProblem() {       // 抽屉里「粘贴自己的题目」：切回可编辑空白输入
+  currentProblemId = "";
+  resetAnalysisState();
+  setProblemText("");
+  editProblem();
+  closePbPanel();
 }
 
 async function loadProblem(pid) {
@@ -1004,6 +1042,15 @@ function copyCode() {
   navigator.clipboard.writeText(editor.getValue())
     .then(() => toast("已复制代码")).catch(() => toast("复制失败"));
 }
+// 用 Monaco 的着色器把一段代码渲染成带语法高亮的 HTML（沿用编辑器主题配色）
+function highlightInto(preEl, code, lang) {
+  if (!preEl) return;
+  if (window.monaco && monaco.editor && monaco.editor.colorize) {
+    monaco.editor.colorize(code || "", lang || "python", {})
+      .then(html => { preEl.innerHTML = html; })
+      .catch(() => { preEl.textContent = code || ""; });
+  } else { preEl.textContent = code || ""; }
+}
 
 /* ---------------- 面板：折叠 / 拖宽 / 记忆 ---------------- */
 const MIN_W = 220, MAX_W = 560;
@@ -1057,7 +1104,6 @@ function renderProblemDisplay(text) { $("#problem-display").textContent = text |
 function setProblemDisplayMode(on) {
   $("#problem-input").classList.toggle("hidden", on);
   $("#problem-display").classList.toggle("hidden", !on);
-  $("#btn-edit-problem").classList.toggle("hidden", !on);
 }
 function setProblemText(text) {
   $("#problem-input").value = text || "";
@@ -1083,7 +1129,6 @@ function initPersistence() {
 /* ---------------- 事件绑定 ---------------- */
 function bind() {
   $("#btn-analyze").onclick = runAnalyze;
-  $("#btn-edit-problem").onclick = editProblem;
   $("#btn-run").onclick = runCode;
   $("#btn-submit").onclick = submitCode;
   $("#btn-copy").onclick = copyCode;
@@ -1097,8 +1142,11 @@ function bind() {
   $("#btn-dl-report").onclick = downloadReport;
   $("#chat-input").onkeydown = (e) => { if (e.key === "Enter") sendChat(); };
   $("#btn-review").onclick = requestReview;
-  // 题库浮层下拉
+  // 题库左侧抽屉
   $("#pb-toggle").onclick = togglePbPanel;
+  $("#pb-close").onclick = closePbPanel;
+  $("#pb-overlay").onclick = closePbPanel;
+  $("#pb-paste").onclick = pasteNewProblem;
   $("#pb-search").oninput = renderProblemList;
   $$("#pb-filters .pb-chip").forEach(c => c.onclick = () => {
     if (c.dataset.ac != null) {            // 「只看未过」独立开关
@@ -1108,9 +1156,6 @@ function bind() {
       $$("#pb-filters .pb-chip[data-diff]").forEach(x => x.classList.toggle("active", x === c));
     }
     renderProblemList();
-  });
-  document.addEventListener("click", (e) => {
-    if (!$("#pb-dropdown").contains(e.target)) closePbPanel();
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closePbPanel(); closeDiffModal(); } });
   $$(".io-tab").forEach(t => t.onclick = () => switchIO(t.dataset.io));
