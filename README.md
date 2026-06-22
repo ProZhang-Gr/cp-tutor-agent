@@ -218,3 +218,13 @@ pip install -r requirements.txt
 5. **求助导师**：逐层请求提示，或与导师自由对话。
 6. **登录**：右上角注册/登录，记录历史、解锁因材施教。
 7. **看仪表盘**：刷题日历热力图、薄弱题型、历史记录。
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=ProZhang-Gr%2Fcp-tutor-agent.git&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ProZhang-Gr/cp-tutor-agent.git&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ProZhang-Gr/cp-tutor-agent.git&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ProZhang-Gr/cp-tutor-agent.git&type=date&legend=top-left" />
+ </picture>
+</a>
