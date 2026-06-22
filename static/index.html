@@ -30,6 +30,8 @@
   </div>
   <nav class="tabs">
     <button class="tab active" data-view="workspace">[ 辅导工作台 ]</button>
+    <button class="tab" data-view="visualizer">[ 算法图解 ]</button>
+    <button class="tab" data-view="community">[ 社群 ]</button>
     <button class="tab" data-view="dashboard">[ 学习仪表盘 ]</button>
   </nav>
   <div class="status" id="conn-status"><span class="dot"></span> DEEPSEEK ONLINE</div>
@@ -197,6 +199,7 @@
         <h3>🧾 AI 学习日报 <span class="pro-tag">PRO</span></h3>
         <div class="report-actions">
           <button id="btn-gen-report" class="btn btn-primary">生成今日报告</button>
+          <button id="btn-share-report" class="btn btn-accent hidden">📤 生成分享图</button>
           <button id="btn-dl-report" class="btn btn-ghost hidden">⬇ 下载 PDF</button>
         </div>
       </div>
@@ -234,6 +237,85 @@
       <table class="recent-table"><thead><tr><th>题目</th><th>题型</th><th>结果</th><th>得分</th></tr></thead>
       <tbody id="recent-body"></tbody></table>
     </div>
+  </div>
+</main>
+
+<!-- ===================== 算法图解 ===================== -->
+<main id="view-visualizer" class="view">
+  <div class="vz-wrap">
+    <aside class="vz-catalog">
+      <div class="vz-catalog-head"><span class="sec-no">◇</span><h2>算法图解</h2></div>
+      <p class="vz-catalog-sub">逐帧看清每一步在做什么</p>
+      <div id="vz-list" class="vz-list"></div>
+    </aside>
+
+    <section class="vz-main">
+      <div class="vz-head">
+        <h2 id="vz-title">选择一个算法</h2>
+        <p id="vz-desc">从左侧挑一个算法，看它一步步执行。</p>
+      </div>
+
+      <div id="vz-stage" class="vz-stage"></div>
+
+      <div id="vz-narr" class="vz-narr"></div>
+
+      <div class="vz-controls">
+        <button id="vz-restart" class="vz-ctl" title="回到开头">⏮</button>
+        <button id="vz-prev" class="vz-ctl" title="上一步">◀</button>
+        <button id="vz-play" class="vz-ctl vz-ctl-main">▶ 播放</button>
+        <button id="vz-next" class="vz-ctl" title="下一步">▶</button>
+        <input id="vz-progress" class="vz-progress" type="range" min="0" max="0" value="0">
+        <select id="vz-speed" class="mini-select vz-speed">
+          <option value="1400">0.5×</option>
+          <option value="850" selected>1×</option>
+          <option value="450">2×</option>
+          <option value="200">4×</option>
+        </select>
+      </div>
+
+      <div id="vz-input-row" class="vz-input-row hidden">
+        <span class="vz-input-label">输入数据</span>
+        <input id="vz-input" class="vz-input" autocomplete="off">
+        <button id="vz-apply" class="btn btn-ghost vz-mini-btn">应用</button>
+        <button id="vz-random" class="btn btn-ghost vz-mini-btn">🎲 随机</button>
+      </div>
+    </section>
+
+    <aside class="vz-code-side">
+      <div class="vz-code-head">伪代码 · 高亮为当前执行行</div>
+      <pre id="vz-code" class="vz-code"></pre>
+      <div id="vz-cx" class="vz-cx"></div>
+    </aside>
+  </div>
+</main>
+
+<!-- ===================== 社群 ===================== -->
+<main id="view-community" class="view">
+  <div class="cm-wrap">
+    <div class="cm-main">
+      <div class="cm-head">
+        <div class="cm-title"><span class="sec-no">❖</span><h2>社群讨论区</h2></div>
+        <p class="cm-sub">难题一起啃 · 思路互相点 · 发帖前会经 AI 审核护栏</p>
+      </div>
+      <div class="cm-toolbar">
+        <div class="cm-tags" id="cm-tags">
+          <button type="button" class="cm-tag active" data-tag="">全部</button>
+          <button type="button" class="cm-tag" data-tag="求助">求助</button>
+          <button type="button" class="cm-tag" data-tag="题解">题解</button>
+          <button type="button" class="cm-tag" data-tag="讨论">讨论</button>
+          <button type="button" class="cm-tag" data-tag="反馈">反馈</button>
+        </div>
+        <button id="cm-new-btn" class="btn btn-primary cm-new-btn">✎ 发帖</button>
+      </div>
+      <div id="cm-list" class="cm-list"></div>
+    </div>
+
+    <!-- 发帖 / 详情 抽屉 -->
+    <div id="cm-overlay" class="cm-overlay"></div>
+    <aside id="cm-drawer" class="cm-drawer">
+      <button id="cm-drawer-close" class="cm-drawer-close" title="关闭">×</button>
+      <div id="cm-drawer-body" class="cm-drawer-body"></div>
+    </aside>
   </div>
 </main>
 
@@ -307,6 +389,20 @@
   </div>
 </div>
 
+<!-- 分享卡片预览弹窗 -->
+<div class="modal-overlay hidden" id="share-modal">
+  <div class="modal modal-share">
+    <button class="modal-close" id="share-close">×</button>
+    <h3 class="share-title">📤 分享学习卡片</h3>
+    <div class="share-canvas-wrap"><canvas id="share-canvas"></canvas></div>
+    <div class="share-actions">
+      <button class="btn btn-ghost" id="share-copy">⎘ 复制图片</button>
+      <button class="btn btn-primary" id="share-download">⬇ 保存图片</button>
+    </div>
+    <p class="share-hint">保存后可直接发到微信 / QQ / 朋友圈 — 平台无关，无需任何授权</p>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <!-- 先加载 marked / Chart（UMD），再加载 Monaco 的 AMD loader，
@@ -315,5 +411,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 <script src="/app.js"></script>
+<script src="/viz.js"></script>
+<script src="/community.js"></script>
 </body>
 </html>

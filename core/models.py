@@ -6,7 +6,7 @@ user_id 对游客为 NULL（共用游客桶），登录用户外键关联 users.
 """
 import time
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -68,3 +68,42 @@ class UserProblem(Base):
     difficulty: Mapped[str | None] = mapped_column(String(30))
     description: Mapped[str] = mapped_column(Text)
     created_at: Mapped[float] = mapped_column(Float, default=time.time, index=True)
+
+
+class Post(Base):
+    """社群帖子。username 冗余存一份便于展示（本应用无改名功能，安全）。"""
+    __tablename__ = "posts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True)
+    username: Mapped[str] = mapped_column(String(40))
+    tag: Mapped[str] = mapped_column(String(20), index=True)   # 求助/题解/讨论/反馈
+    title: Mapped[str] = mapped_column(String(120))
+    body: Mapped[str] = mapped_column(Text)
+    likes: Mapped[int] = mapped_column(Integer, default=0)
+    reply_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time, index=True)
+
+
+class Reply(Base):
+    __tablename__ = "post_replies"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("posts.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True)
+    username: Mapped[str] = mapped_column(String(40))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time, index=True)
+
+
+class PostLike(Base):
+    """点赞去重：同一用户对同一帖只能点一次。"""
+    __tablename__ = "post_likes"
+    __table_args__ = (UniqueConstraint("post_id", "user_id", name="uq_post_user_like"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("posts.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)

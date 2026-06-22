@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from config import settings
-from core import agents, auth, billing, guard, profile, progress, report, sandbox
+from core import agents, auth, billing, community, guard, profile, progress, report, sandbox
 from core.llm import get_llm
 from core.rag import get_bank
 from core.debugger import run_debug_stream
@@ -39,6 +39,7 @@ def _init_db():
 
 
 _init_db()
+community.seed_if_empty()   # 社群空表时灌入引导帖，避免一打开就冷清
 
 # 启动自检：缺 API Key 时醒目告警（不阻断启动，但首个 LLM 请求必然失败）
 if not settings.DEEPSEEK_API_KEY:
@@ -481,6 +482,72 @@ def daily_report_pdf(req: ReportPdfReq, arena_session: str = Cookie(default=None
         user["username"] if user else "")
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": "attachment; filename=arena_daily_report.pdf"})
+
+
+# ------------------------- 社群讨论区 -------------------------
+class PostReq(BaseModel):
+    tag: str = "讨论"
+    title: str = ""
+    body: str = ""
+
+
+class ReplyReq(BaseModel):
+    body: str = ""
+
+
+@app.get("/api/community/posts")
+def community_posts(tag: str = ""):
+    return {"posts": community.list_posts(tag or None)}
+
+
+@app.get("/api/community/posts/{pid}")
+def community_post(pid: int, arena_session: str = Cookie(default=None)):
+    p = community.get_post(pid, _uid(arena_session))
+    return p or JSONResponse({"error": "帖子不存在"}, status_code=404)
+
+
+@app.post("/api/community/posts")
+def community_create(req: PostReq, request: Request, arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+    if uid is None:
+        return JSONResponse({"error": "请先登录再发帖"}, status_code=401)
+    if len(req.body) > settings.MAX_PROBLEM_CHARS:
+        return JSONResponse({"error": "正文过长"}, status_code=400)
+    blocked = _abuse_block(request, uid, "community")   # 审核含 LLM 调用，纳入限流配额
+    if blocked:
+        return blocked
+    user = auth.get_user_by_id(uid)
+    post, err = community.create_post(uid, user["username"] if user else "用户",
+                                      req.tag, req.title, req.body)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    return {"post": post}
+
+
+@app.post("/api/community/posts/{pid}/reply")
+def community_reply(pid: int, req: ReplyReq, request: Request, arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+    if uid is None:
+        return JSONResponse({"error": "请先登录再回复"}, status_code=401)
+    blocked = _abuse_block(request, uid, "community")
+    if blocked:
+        return blocked
+    user = auth.get_user_by_id(uid)
+    reply, err = community.add_reply(uid, user["username"] if user else "用户", pid, req.body)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    return {"reply": reply}
+
+
+@app.post("/api/community/posts/{pid}/like")
+def community_like(pid: int, arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+    if uid is None:
+        return JSONResponse({"error": "请先登录再点赞"}, status_code=401)
+    likes, liked = community.toggle_like(uid, pid)
+    if likes is None:
+        return JSONResponse({"error": "帖子不存在"}, status_code=404)
+    return {"likes": likes, "liked": liked}
 
 
 # ------------------------- 前端静态资源 -------------------------

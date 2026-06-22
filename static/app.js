@@ -907,8 +907,132 @@ async function genReport() {
       `<div class="r-stats">📅 ${esc(data.date)} ｜ 尝试 ${st.attempted} · 通过 ${st.ac} · AI互动 ${st.llm_calls} 次</div>` +
       `<div class="r-narr">${marked.parse(data.narrative || "")}</div>`;
     $("#btn-dl-report").classList.remove("hidden");
+    $("#btn-share-report").classList.remove("hidden");
   } catch (e) { toast("生成失败"); }
   finally { btn.disabled = false; btn.textContent = "生成今日报告"; }
+}
+
+/* ---------------- 分享卡片（客户端 Canvas 生成，平台无关） ---------------- */
+function openShareCard() {
+  if (!lastReport) return toast("请先生成今日报告");
+  $("#share-modal").classList.remove("hidden");
+  drawShareCard(lastReport);
+}
+function closeShareCard() { $("#share-modal").classList.add("hidden"); }
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+// 朴素分词换行（中文逐字、英文按词），返回绘制的行数
+function wrapText(ctx, text, x, y, maxW, lh, maxLines) {
+  const tokens = String(text || "").replace(/\s+/g, " ").trim().split(/(?<=[一-龥])|(?=[一-龥])|\s/);
+  let line = "", lines = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const test = line + tokens[i];
+    if (ctx.measureText(test).width > maxW && line) {
+      if (maxLines && lines >= maxLines - 1) { ctx.fillText(line.replace(/\s+$/, "") + "…", x, y); return lines + 1; }
+      ctx.fillText(line, x, y); line = tokens[i].trim() ? tokens[i] : ""; y += lh; lines++;
+    } else { line = test; }
+  }
+  if (line.trim()) { ctx.fillText(line, x, y); lines++; }
+  return lines;
+}
+
+async function drawShareCard(rep) {
+  const canvas = $("#share-canvas");
+  const SC = 2, W = 720, H = 940;
+  canvas.width = W * SC; canvas.height = H * SC;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(SC, SC);
+  try { await document.fonts.ready; } catch (e) {}
+  const SERIF = '"Fraunces","Songti SC",serif', SANS = '"IBM Plex Sans","PingFang SC",sans-serif',
+        MONO = '"JetBrains Mono",monospace';
+  const ink = "#2E2A22", inkDim = "#6E6657", inkMute = "#9C9484",
+        accent = "#1F6F66", gold = "#BE8E2C", paper = "#FBF7EF", line = "#E1D8C6", tint = "#F0E9D9";
+  const st = rep.stats || {};
+
+  // 背景 + 卡片
+  ctx.fillStyle = "#EBE3D3"; ctx.fillRect(0, 0, W, H);
+  roundRect(ctx, 26, 26, W - 52, H - 52, 24); ctx.fillStyle = paper; ctx.fill();
+  ctx.strokeStyle = line; ctx.lineWidth = 1.5; ctx.stroke();
+
+  const M = 60;
+  // 品牌标记
+  roundRect(ctx, M, 64, 52, 52, 14); ctx.fillStyle = accent; ctx.fill();
+  ctx.fillStyle = paper; ctx.font = "700 24px " + MONO; ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  ctx.fillText("/A", M + 11, 91);
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = ink; ctx.font = "700 30px " + SERIF; ctx.fillText("ARENA", M + 68, 88);
+  ctx.fillStyle = inkMute; ctx.font = "400 14px " + SANS; ctx.fillText("算法竞赛辅导智能体 · 学习日报", M + 68, 109);
+
+  // 分隔线
+  ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(M, 150); ctx.lineTo(W - M, 150); ctx.stroke();
+
+  // 日期
+  ctx.fillStyle = gold; ctx.font = "700 15px " + MONO; ctx.fillText("📅 " + (rep.date || ""), M, 188);
+
+  // 标语
+  ctx.fillStyle = ink; ctx.font = "600 26px " + SERIF;
+  ctx.fillText("今天，我又往前走了一步", M, 232);
+
+  // 统计三宫格
+  const tiles = [
+    { n: st.attempted != null ? st.attempted : 0, l: "今日尝试" },
+    { n: st.ac != null ? st.ac : 0, l: "成功攻克" },
+    { n: st.llm_calls != null ? st.llm_calls : 0, l: "AI 互动" },
+  ];
+  const tw = (W - 2 * M - 2 * 18) / 3, ty = 268, th = 132;
+  tiles.forEach((t, i) => {
+    const tx = M + i * (tw + 18);
+    roundRect(ctx, tx, ty, tw, th, 16); ctx.fillStyle = tint; ctx.fill();
+    ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = accent; ctx.font = "700 46px " + SERIF; ctx.textAlign = "center";
+    ctx.fillText(String(t.n), tx + tw / 2, ty + 68);
+    ctx.fillStyle = inkDim; ctx.font = "500 15px " + SANS;
+    ctx.fillText(t.l, tx + tw / 2, ty + 102);
+  });
+  ctx.textAlign = "left";
+
+  // AI 点评
+  ctx.fillStyle = inkMute; ctx.font = "700 13px " + MONO; ctx.fillText("AI 导师寄语", M, 452);
+  ctx.fillStyle = ink; ctx.font = "400 17px " + SANS;
+  const narr = String(rep.narrative || "").replace(/[#*`>_\-]/g, "").replace(/\n+/g, " ").trim();
+  wrapText(ctx, narr, M, 484, W - 2 * M, 30, 9);
+
+  // 底部品牌条
+  roundRect(ctx, M, H - 132, W - 2 * M, 56, 14); ctx.fillStyle = accent; ctx.fill();
+  ctx.fillStyle = paper; ctx.font = "600 16px " + SANS; ctx.textAlign = "left";
+  ctx.fillText("🎓 和 ARENA 一起刷题，每天进步一点点", M + 22, H - 98);
+  ctx.fillStyle = inkMute; ctx.font = "400 13px " + MONO; ctx.textAlign = "center";
+  ctx.fillText("cp-tutor-agent · LangGraph × DeepSeek 多智能体辅导", W / 2, H - 52);
+  ctx.textAlign = "left";
+}
+
+function downloadShareCard() {
+  const canvas = $("#share-canvas");
+  canvas.toBlob((blob) => {
+    if (!blob) return toast("生成失败");
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "ARENA学习卡片_" + (lastReport ? lastReport.date : "") + ".png";
+    a.click(); URL.revokeObjectURL(url);
+    toast("已保存图片");
+  });
+}
+async function copyShareCard() {
+  const canvas = $("#share-canvas");
+  try {
+    const blob = await new Promise((res) => canvas.toBlob(res));
+    if (!blob || !navigator.clipboard || !window.ClipboardItem) throw new Error("unsupported");
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    toast("✅ 图片已复制，可直接粘贴发送");
+  } catch (e) { toast("此浏览器不支持复制图片，请用「保存图片」"); }
 }
 async function downloadReport() {
   if (!lastReport) return;
@@ -1168,6 +1292,11 @@ function bind() {
   $("#btn-ask-tutor").onclick = askTutorAbout;
   $("#btn-gen-report").onclick = genReport;
   $("#btn-dl-report").onclick = downloadReport;
+  $("#btn-share-report").onclick = openShareCard;
+  $("#share-close").onclick = closeShareCard;
+  $("#share-copy").onclick = copyShareCard;
+  $("#share-download").onclick = downloadShareCard;
+  $("#share-modal").onclick = (e) => { if (e.target.id === "share-modal") closeShareCard(); };
   $("#chat-input").onkeydown = (e) => { if (e.key === "Enter") sendChat(); };
   $("#btn-review").onclick = requestReview;
   // 题库左侧抽屉
@@ -1193,6 +1322,8 @@ function bind() {
     $$(".view").forEach(v => v.classList.remove("active"));
     $("#view-" + t.dataset.view).classList.add("active");
     if (t.dataset.view === "dashboard") loadDashboard();
+    if (t.dataset.view === "visualizer" && window.initVisualizer) window.initVisualizer();
+    if (t.dataset.view === "community" && window.loadCommunity) window.loadCommunity();
   });
   // 导师修订 diff 弹窗
   $("#diff-close").onclick = closeDiffModal;
