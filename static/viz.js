@@ -449,4 +449,31 @@
     $v("#vz-input").onkeydown = (e) => { if (e.key === "Enter") rebuild(); };
     select("bubble");
   };
+
+  /* ---- 对外：按文本匹配相关算法 + 跳转打开 ----
+     供工作台「题目剖析」在检索到对应算法时给出图解超链接。 */
+  const KW = {
+    bubble: ["冒泡"],
+    quick: ["快速排序", "快排", "quicksort", "quick sort"],
+    merge: ["归并", "mergesort", "merge sort"],
+    binary: ["二分查找", "二分", "binary search", "折半"],
+    twoptr: ["双指针", "两数之和", "对撞指针", "two pointer", "two sum", "two-pointer"],
+    bfs: ["bfs", "广度优先", "宽搜", "广搜", "层序遍历"],
+    dfs: ["dfs", "深度优先", "深搜", "回溯"],
+    dijkstra: ["dijkstra", "最短路", "最短路径", "单源最短"],
+    knapsack: ["背包", "knapsack", "01背包", "0/1背包", "0-1背包"],
+  };
+  window.vizMatch = function (text) {
+    const low = String(text || "").toLowerCase();
+    const out = [];
+    ALGOS.forEach((a) => {
+      const ks = KW[a.id] || [];
+      if (ks.some((k) => low.includes(k.toLowerCase()))) out.push({ id: a.id, name: a.name });
+    });
+    return out;
+  };
+  window.vizOpen = function (id) {
+    if (!inited) window.initVisualizer();
+    select(id);
+  };
 })();

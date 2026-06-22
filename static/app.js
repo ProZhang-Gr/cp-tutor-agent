@@ -6,6 +6,9 @@
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
+// 新建/换题时编辑器的空白模板
+const DEFAULT_CODE = "import sys\n\ndef main():\n    data = sys.stdin.read().split()\n    # 在此编写你的解法\n    print()\n\nmain()\n";
+
 let editor = null;            // Monaco 实例
 let currentAnalysis = {};     // 最近一次题目分析结果
 let hintLevel = 0;            // 当前提示层级
@@ -30,6 +33,8 @@ function resetAnalysisState() {
   $("#strategies").classList.add("hidden");
   hintLevel = 0; hintHistory = [];
   $("#hint-level-num").textContent = "0"; $("#hint-box").innerHTML = "";
+  lastStrategies = null;
+  const av = $("#ana-viz"); if (av) { av.classList.add("hidden"); av.innerHTML = ""; }
 }
 
 /* 智能体定义：node 名 -> 卡片 */
@@ -292,7 +297,33 @@ function renderAnalysis(a) {
   else $("#ana-deepdive-wrap").classList.add("hidden");
   $("#ana-pitfalls").innerHTML = (a.pitfalls || []).map(p => `<li>${esc(p)}</li>`).join("") || "<li>—</li>";
   $("#ana-knowledge").innerHTML = (a.knowledge_points || []).map(k => `<span class="chip">${esc(k)}</span>`).join("");
+  refreshVizLinks();
   return true;
+}
+
+// 在题目剖析里挂出「相关算法图解」超链接：检索到对应算法 → 一键跳到图解看动图
+let lastStrategies = null;
+function refreshVizLinks() {
+  const box = $("#ana-viz");
+  if (!box || !window.vizMatch) return;
+  const a = currentAnalysis || {};
+  let text = [a.type, a.key_insight, a.title, (a.knowledge_points || []).join(" ")].join(" ");
+  if (lastStrategies && lastStrategies.strategies)
+    text += " " + lastStrategies.strategies.map(s => s.name + " " + (s.idea || "")).join(" ");
+  const matches = window.vizMatch(text);
+  if (!matches.length) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+  box.classList.remove("hidden");
+  box.innerHTML = `<span class="ana-viz-label">🎬 相关算法图解 · 点开看动图</span>` +
+    `<div class="ana-viz-chips">` +
+    matches.map(m => `<button type="button" class="ana-viz-chip" data-id="${esc(m.id)}">${esc(m.name)} ›</button>`).join("") +
+    `</div>`;
+  $$("#ana-viz .ana-viz-chip").forEach(b => b.onclick = () => openVisualizer(b.dataset.id));
+}
+// 切到「算法图解」标签并定位到指定算法
+function openVisualizer(id) {
+  const tab = document.querySelector('.tab[data-view="visualizer"]');
+  if (tab) tab.click();
+  if (window.vizOpen) window.vizOpen(id);
 }
 // 解题推演：分步卡片，避免一大坨文字墙
 function renderDeepDive(dd) {
@@ -322,6 +353,7 @@ function renderSimilar(list) {
 }
 function renderStrategies(s) {
   if (!s || !s.strategies) return;
+  lastStrategies = s; refreshVizLinks();   // 策略里也常点名具体算法，纳入图解匹配
   $("#strategies").classList.remove("hidden");
   $("#strategy-list").innerHTML = s.strategies.map(st => {
     const rec = (st.name === s.recommended) ? `<span class="recommend-tag">推荐</span>` : "";
@@ -889,8 +921,19 @@ async function loadProblem(pid) {
   resetAnalysisState();          // 换题 → 旧分析/提示作废
   currentProblemId = pid;        // 记住当前题目 id（用于 AC 标记）
   setPbCurrent(p.title);
+  await loadProblemCode(pid);    // 换题 → 编辑器恢复该题上次代码，否则回到空白模板
   if ($("#io-history").classList.contains("active")) loadSubmissions();
   toast("已载入：" + p.title);
+}
+
+// 换题时同步编辑器：有该题历史提交则载入最近一次代码，否则重置为空白模板
+async function loadProblemCode(pid) {
+  if (!editor) return;
+  try {
+    const r = await fetch("/api/submissions?problem_id=" + encodeURIComponent(pid)).then(r => r.json());
+    const last = (r.submissions || []).find(s => s.code && s.code.trim());
+    editor.setValue(last ? last.code : DEFAULT_CODE);
+  } catch (e) { editor.setValue(DEFAULT_CODE); }
 }
 
 /* ---------------- 每日报告（Pro） ---------------- */
@@ -1343,6 +1386,7 @@ async function loadMe() {
   try {
     const r = await fetch("/api/me").then(r => r.json());
     currentUser = r.user; currentProfile = r.profile; currentBilling = r.billing || currentBilling;
+    window.currentUser = currentUser;   // 暴露给 community.js（let 绑定不会挂到 window 上）
     renderAuthArea(); renderAdaptiveNote();
   } catch (e) {}
 }
