@@ -41,6 +41,7 @@ class Submission(Base):
     tests_total: Mapped[int] = mapped_column(Integer, default=0)
     score: Mapped[int] = mapped_column(Integer, default=0)
     error_kind: Mapped[str | None] = mapped_column(String(20))
+    code: Mapped[str | None] = mapped_column(Text, nullable=True)   # 提交时的源代码
 
 
 class AuditLog(Base):

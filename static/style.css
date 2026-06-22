@@ -37,8 +37,9 @@ body{
 .topbar{position:relative;z-index:2;height:66px;display:flex;align-items:center;gap:28px;
   padding:0 26px;border-bottom:1px solid var(--line);background:rgba(251,247,239,.82);backdrop-filter:blur(8px)}
 .brand{display:flex;align-items:center;gap:13px}
-.mark{font-family:var(--font-display);font-weight:700;font-size:20px;color:var(--accent-ink);
-  background:var(--accent);width:42px;height:42px;display:grid;place-items:center;border-radius:11px;box-shadow:var(--shadow-sm)}
+.mark{font-family:var(--font-mono);font-weight:700;font-size:19px;color:var(--accent-ink);line-height:1;
+  letter-spacing:-1px;white-space:nowrap;background:var(--accent);width:42px;height:42px;
+  display:grid;place-items:center;border-radius:11px;box-shadow:var(--shadow-sm);user-select:none}
 .brand-txt h1{font-family:var(--font-display);font-weight:700;font-size:23px;letter-spacing:1px;color:var(--ink)}
 .brand-txt p{font-size:11.5px;color:var(--ink-mute);margin-top:1px}
 .tabs{display:flex;gap:6px;margin-left:10px}
@@ -90,6 +91,13 @@ body.resizing *{cursor:col-resize!important;user-select:none}
   background:var(--field);border:1px solid var(--line);border-radius:var(--r-sm);color:var(--ink);
   padding:13px;font-family:var(--font-mono);font-size:12.5px;line-height:1.75}
 .problem-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
+/* 载入后的全文展示（只读，不裁切） */
+.problem-display{width:100%;white-space:pre-wrap;word-break:break-word;
+  background:var(--field);border:1px solid var(--line);border-radius:var(--r-sm);color:var(--ink);
+  padding:15px 17px;font-family:var(--font-body);font-size:13.5px;line-height:1.85}
+.btn-edit-problem{margin-top:9px;font-family:var(--font-body);font-size:12px;color:var(--ink-dim);
+  background:none;border:none;cursor:pointer;padding:3px 2px;text-decoration:underline;text-underline-offset:3px}
+.btn-edit-problem:hover{color:var(--accent)}
 .mini-select{font-family:var(--font-body);background:var(--field);border:1px solid var(--line);
   color:var(--ink-dim);padding:6px 10px;border-radius:var(--r-sm);font-size:12px;cursor:pointer;max-width:160px}
 .mini-select:focus{outline:none;border-color:var(--accent)}
@@ -440,24 +448,36 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 .pb-chip.active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .pb-chip-ac{margin-left:auto}
 .pb-chip-ac.active{background:var(--gold);border-color:var(--gold);color:#3a2c08}
+/* 完成进度条（仿 LeetCode 顶部进度） */
+.pb-progress{padding:10px 11px;margin-bottom:8px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--r-sm)}
+.pb-prog-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px}
+.pb-prog-label{font-size:11.5px;color:var(--ink-dim)}
+.pb-prog-num{font-family:var(--font-mono);font-size:12px;color:var(--ink-mute)}
+.pb-prog-num b{font-size:15px;color:var(--accent);font-weight:700}
+.pb-prog-bar{height:7px;background:var(--bg);border-radius:20px;overflow:hidden}
+.pb-prog-bar i{display:block;height:100%;border-radius:20px;
+  background:linear-gradient(90deg,var(--accent),#3aa493);transition:width .4s cubic-bezier(.2,.8,.2,1)}
 .pb-list{overflow-y:auto;flex:1;margin:-3px;padding:3px}
-.pb-group{font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;color:var(--ink-mute);
-  text-transform:uppercase;padding:8px 4px 4px;position:sticky;top:0;background:var(--paper)}
-.pb-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;
-  background:none;border:none;border-radius:var(--r-sm);padding:8px 9px;transition:.12s}
+.pb-group{display:flex;align-items:center;gap:7px;font-family:var(--font-body);font-weight:600;font-size:11.5px;
+  color:var(--ink-dim);padding:11px 6px 5px;position:sticky;top:0;background:var(--paper);z-index:1}
+.pb-group-n{font-family:var(--font-mono);font-size:10px;font-weight:400;color:var(--ink-mute);
+  background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:0 7px;line-height:16px}
+.pb-item{display:flex;align-items:center;gap:11px;width:100%;text-align:left;cursor:pointer;
+  background:none;border:none;border-bottom:1px solid var(--line-soft);padding:9px 8px;transition:.12s}
+.pb-item:last-child{border-bottom:none}
 .pb-item:hover{background:var(--tint)}
 .pb-item.active{background:var(--accent-tint);box-shadow:inset 2px 0 0 var(--accent)}
-.pb-status{flex-shrink:0;width:34px;text-align:center;font-family:var(--font-mono);font-size:10px;font-weight:700;
-  padding:3px 0;border-radius:5px;letter-spacing:.3px}
-.pb-status.ac{background:rgba(60,139,87,.16);color:var(--ok);border:1px solid rgba(60,139,87,.4)}
-.pb-status.todo{background:var(--surface2);color:var(--ink-mute);border:1px solid var(--line)}
+.pb-ico{flex-shrink:0;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;
+  font-size:11px;font-weight:700}
+.pb-ico.ac{background:var(--ok);color:#fff;border:1px solid var(--ok)}
+.pb-ico.todo{background:none;border:1.5px solid #cdc2ab}
 .pb-name{flex:1;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pb-tags{display:flex;gap:5px;flex-shrink:0}
-.pb-tag{font-family:var(--font-body);font-size:10px;padding:2px 7px;border-radius:11px;border:1px solid var(--line);
-  background:var(--surface2);color:var(--ink-dim)}
-.pb-tag.easy{color:var(--ok);border-color:rgba(60,139,87,.4);background:rgba(60,139,87,.08)}
-.pb-tag.mid{color:var(--warn);border-color:rgba(194,146,46,.4);background:rgba(194,146,46,.08)}
-.pb-tag.hard{color:var(--bad);border-color:rgba(191,74,48,.4);background:rgba(191,74,48,.08)}
+.pb-type{flex-shrink:0;font-family:var(--font-body);font-size:10px;color:var(--ink-mute);
+  background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:2px 8px}
+.pb-diff{flex-shrink:0;font-size:11.5px;font-weight:600}
+.pb-diff.easy{color:var(--ok)}
+.pb-diff.mid{color:var(--warn)}
+.pb-diff.hard{color:var(--bad)}
 .pb-empty{color:var(--ink-mute);font-size:12.5px;text-align:center;padding:26px}
 
 /* ===================== 结果区高度把手 ===================== */
@@ -523,3 +543,27 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 .diff-explain{font-size:12.5px;color:var(--ink-dim);line-height:1.6;margin-bottom:12px}
 .diff-editor{height:min(54vh,460px);border:1px solid #d9cfba;border-radius:var(--r-sm);overflow:hidden}
 .diff-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+
+/* ===================== 本题提交记录 ===================== */
+.sub-list{display:flex;flex-direction:column;gap:8px}
+.sub-item{background:var(--tint);border:1px solid var(--line-soft);border-radius:var(--r-sm);overflow:hidden}
+.sub-head{display:flex;align-items:center;gap:10px;padding:9px 11px;cursor:pointer;transition:.12s}
+.sub-head:hover{background:var(--surface2)}
+.sub-verdict{font-family:var(--font-mono);font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:5px;letter-spacing:.3px;flex-shrink:0}
+.sub-verdict.ac{background:rgba(60,139,87,.16);color:var(--ok);border:1px solid rgba(60,139,87,.4)}
+.sub-verdict.wa{background:rgba(191,74,48,.13);color:var(--bad);border:1px solid rgba(191,74,48,.38)}
+.sub-verdict.ce{background:rgba(194,146,46,.14);color:var(--warn);border:1px solid rgba(194,146,46,.4)}
+.sub-no{font-family:var(--font-mono);font-size:11px;color:var(--ink-mute);flex-shrink:0}
+.sub-meta{font-size:12px;color:var(--ink-dim);flex:1}
+.sub-time{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-mute);flex-shrink:0}
+.sub-toggle{font-size:11px;color:var(--ink-mute);transition:transform .18s;flex-shrink:0}
+.sub-toggle.open{transform:rotate(180deg)}
+.sub-code{display:none}
+.sub-code.open{display:block;border-top:1px solid var(--line-soft)}
+.sub-code-bar{display:flex;align-items:center;justify-content:space-between;padding:7px 11px;
+  font-size:11px;color:var(--ink-mute);background:var(--surface2)}
+.sub-copy{font-family:var(--font-body);font-size:11px;color:var(--accent);background:var(--paper);
+  border:1px solid var(--accent);border-radius:14px;padding:3px 11px;cursor:pointer;transition:.14s}
+.sub-copy:hover{background:var(--accent-tint)}
+.sub-code pre{font-family:var(--font-mono);font-size:11.5px;line-height:1.55;color:var(--code-fg);
+  background:var(--code-bg);margin:0;padding:11px 13px;white-space:pre-wrap;max-height:280px;overflow:auto}

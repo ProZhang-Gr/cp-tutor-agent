@@ -76,25 +76,24 @@ function setAgent(id, state) {
 }
 function resetAgents(ids) { ids.forEach(id => setAgent(id, "idle")); }
 
-/* ---- 智能体面板：迷你条 / 展开 ---- */
-let teamPinned = false, teamCloseTimer = null;
+/* ---- 智能体面板：迷你条 / 展开 ----
+   行为：智能体一开始工作就自动展开看协作，全部完成后自动收起为迷你条。
+   点击状态条可临时手动开合，但不会永久钉住——下一次启动智能体仍会自动展开、结束自动收起。 */
+let teamCloseTimer = null;
 function setTeamOpenClass(open) { $("#team").classList.toggle("open", open); }
 function openTeam() { clearTimeout(teamCloseTimer); setTeamOpenClass(true); }
 function scheduleTeamAutoClose() {
-  if (teamPinned) return;                       // 用户钉住则不自动收
   clearTimeout(teamCloseTimer);
   teamCloseTimer = setTimeout(() => {
     const busy = AGENTS.some(a => {
       const e = $(`#agent-${a.id}`); return e && e.classList.contains("working");
     });
-    if (!busy) setTeamOpenClass(false);
+    if (!busy) setTeamOpenClass(false);         // 没有正在工作的智能体了 → 收起
   }, 2500);
 }
-function toggleTeam() {
-  teamPinned = !$("#team").classList.contains("open");
-  localStorage.setItem("cp_team_open", teamPinned ? "1" : "0");
+function toggleTeam() {                          // 手动开合（临时，不持久化）
   clearTimeout(teamCloseTimer);
-  setTeamOpenClass(teamPinned);
+  setTeamOpenClass(!$("#team").classList.contains("open"));
 }
 
 /* Monaco */
@@ -176,6 +175,7 @@ async function sseStream(url, body, onEvent) {
 async function runAnalyze() {
   const problem = $("#problem-input").value.trim();
   if (!problem) return toast("请先输入题目");
+  setProblemText(problem);       // 分析开始即切到全文展示
   const btn = $("#btn-analyze");
   btn.disabled = true; btn.textContent = "🧠 智能体分析中…";
   $("#analysis-result").classList.add("hidden");
@@ -340,6 +340,7 @@ async function submitCode() {
       } else if (ev.event === "error") { toast("评测出错：" + ev.message); }
     });
     toast("✅ 评测完成");
+    if ($("#io-history").classList.contains("active")) loadSubmissions();
   } catch (e) { toast("评测失败：" + e.message); }
   finally { btn.disabled = false; btn.textContent = "✅ 提交评测"; }
 }
@@ -749,28 +750,64 @@ async function loadProblemList() {
   renderProblemList();
 }
 
+function renderPbProgress(solved, total) {
+  const el = $("#pb-progress");
+  if (!el) return;
+  const pct = total ? Math.round(100 * solved / total) : 0;
+  el.innerHTML = `
+    <div class="pb-prog-top">
+      <span class="pb-prog-label">题库完成进度</span>
+      <span class="pb-prog-num"><b>${solved}</b> / ${total}</span>
+    </div>
+    <div class="pb-prog-bar"><i style="width:${pct}%"></i></div>`;
+}
+
 function renderProblemList() {
   const q = ($("#pb-search").value || "").trim().toLowerCase();
-  const list = problemItems.filter(p => {
+  const match = (p) => {
     if (pbDiffFilter && p.difficulty !== pbDiffFilter) return false;
     if (pbAcOnly && p.solved) return false;
     if (q && !(p.title.toLowerCase().includes(q) || p.type.toLowerCase().includes(q))) return false;
     return true;
-  });
+  };
+  const list = problemItems.filter(match);
   $("#pb-count").textContent = list.length + " 题";
+
+  // 进度条按题库全量统计（不随筛选变化）
+  const bankAll = problemItems.filter(p => p.group === "题库");
+  renderPbProgress(bankAll.filter(p => p.solved).length, bankAll.length);
+
   if (!list.length) { $("#pb-list").innerHTML = '<div class="pb-empty">没有匹配的题目</div>'; return; }
-  let html = "", lastGroup = null;
-  list.forEach(p => {
-    if (p.group !== lastGroup) { html += `<div class="pb-group">${esc(p.group)}</div>`; lastGroup = p.group; }
-    const diffCls = (p.difficulty === "简单" || p.difficulty === "入门") ? "easy"
-                  : (p.difficulty === "困难" ? "hard" : "mid");
-    const active = p.id === String(currentProblemId) ? " active" : "";
-    html += `<button type="button" class="pb-item${active}" data-id="${esc(p.id)}">
-        <span class="pb-status ${p.solved ? "ac" : "todo"}">${p.solved ? "AC" : "○"}</span>
-        <span class="pb-name">${esc(p.title)}</span>
-        <span class="pb-tags"><span class="pb-tag ${diffCls}">${esc(p.difficulty)}</span><span class="pb-tag type">${esc(p.type)}</span></span>
-      </button>`;
-  });
+
+  const diffTag = (d) => {
+    const cls = (d === "简单" || d === "入门") ? "easy" : (d === "困难" ? "hard" : "mid");
+    return `<span class="pb-diff ${cls}">${esc(d)}</span>`;
+  };
+  const ico = (solved) => `<span class="pb-ico ${solved ? "ac" : "todo"}">${solved ? "✓" : ""}</span>`;
+  const row = (p, showType) => `
+    <button type="button" class="pb-item${p.id === String(currentProblemId) ? " active" : ""}" data-id="${esc(p.id)}">
+      ${ico(p.solved)}
+      <span class="pb-name">${esc(p.title)}</span>
+      ${showType ? `<span class="pb-type">${esc(p.type)}</span>` : ""}
+      ${diffTag(p.difficulty)}
+    </button>`;
+
+  // 题库按题型分组（仿 LeetCode 分类），「我的题目」单独成组
+  const bankList = list.filter(p => p.group === "题库");
+  const mineList = list.filter(p => p.group === "我的题目");
+  let html = "";
+  if (bankList.length) {
+    const byType = {};
+    bankList.forEach(p => (byType[p.type] = byType[p.type] || []).push(p));
+    Object.keys(byType).forEach(t => {
+      html += `<div class="pb-group">${esc(t)}<span class="pb-group-n">${byType[t].length}</span></div>`;
+      html += byType[t].map(p => row(p, false)).join("");
+    });
+  }
+  if (mineList.length) {
+    html += `<div class="pb-group">我的题目<span class="pb-group-n">${mineList.length}</span></div>`;
+    html += mineList.map(p => row(p, true)).join("");
+  }
   $("#pb-list").innerHTML = html;
   $$("#pb-list .pb-item").forEach(b => b.onclick = () => { loadProblem(b.dataset.id); closePbPanel(); });
 }
@@ -803,11 +840,11 @@ async function loadProblem(pid) {
   if (!p || p.error) return;
   let text = p.description;
   if (p.sample_input) text += `\n\n样例输入：\n${p.sample_input}\n\n样例输出：\n${p.sample_output}`;
-  $("#problem-input").value = text;
-  localStorage.setItem("cp_problem", text);
+  setProblemText(text);          // 全文展示（只读），同时写入数据源
   resetAnalysisState();          // 换题 → 旧分析/提示作废
   currentProblemId = pid;        // 记住当前题目 id（用于 AC 标记）
   setPbCurrent(p.title);
+  if ($("#io-history").classList.contains("active")) loadSubmissions();
   toast("已载入：" + p.title);
 }
 
@@ -903,6 +940,58 @@ function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, c => ({ "&
 function switchIO(which) {
   $$(".io-tab").forEach(t => t.classList.toggle("active", t.dataset.io === which));
   $$(".io-pane").forEach(p => p.classList.toggle("active", p.id === "io-" + which));
+  if (which === "history") loadSubmissions();
+}
+
+/* ---------------- 本题提交记录 ---------------- */
+function fmtSubTime(ts) {
+  const d = new Date(ts * 1000), p = (n) => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+async function loadSubmissions() {
+  const wrap = $("#sub-list");
+  if (!currentProblemId) {
+    wrap.innerHTML = '<div class="empty-hint">从题库选择、或保存为「我的题目」后，这里会按题记录你每次提交的代码与结果。</div>';
+    return;
+  }
+  wrap.innerHTML = '<div class="empty-hint">加载提交记录…</div>';
+  try {
+    const r = await fetch("/api/submissions?problem_id=" + encodeURIComponent(currentProblemId)).then(r => r.json());
+    renderSubmissions(r.submissions || []);
+  } catch (e) { wrap.innerHTML = '<div class="empty-hint">加载失败</div>'; }
+}
+function renderSubmissions(subs) {
+  const wrap = $("#sub-list");
+  if (!subs.length) {
+    wrap.innerHTML = '<div class="empty-hint">本题还没有提交记录，提交评测后会自动记录。</div>';
+    return;
+  }
+  const n = subs.length;
+  wrap.innerHTML = subs.map((s, i) => {
+    const kind = s.error_kind || (s.passed ? "AC" : "WA");
+    const cls = kind === "AC" ? "ac" : (kind === "CE" ? "ce" : "wa");
+    const tests = s.tests_total ? `${s.tests_passed}/${s.tests_total} 用例 · ` : "";
+    return `<div class="sub-item">
+        <div class="sub-head" onclick="this.parentElement.querySelector('.sub-code').classList.toggle('open');this.querySelector('.sub-toggle').classList.toggle('open')">
+          <span class="sub-verdict ${cls}">${esc(kind)}</span>
+          <span class="sub-no">#${n - i}</span>
+          <span class="sub-meta">${tests}得分 ${s.score}</span>
+          <span class="sub-time">${fmtSubTime(s.ts)}</span>
+          <span class="sub-toggle">▾</span>
+        </div>
+        <div class="sub-code">
+          <div class="sub-code-bar"><span>提交 #${n - i} 的代码</span><button class="sub-copy" data-idx="${i}">⎘ 复制</button></div>
+          <pre>${esc(s.code || "(这条记录未保存代码)")}</pre>
+        </div>
+      </div>`;
+  }).join("");
+  $$("#sub-list .sub-copy").forEach(b => b.onclick = (e) => {
+    e.stopPropagation();
+    const code = subs[parseInt(b.dataset.idx)].code || "";
+    navigator.clipboard.writeText(code)
+      .then(() => { b.textContent = "✓ 已复制"; setTimeout(() => { b.textContent = "⎘ 复制"; }, 1500); })
+      .catch(() => toast("复制失败"));
+  });
 }
 let toastTimer;
 function toast(msg) {
@@ -963,31 +1052,38 @@ function initPanels() {
 }
 
 /* ---------------- 题目自动保存 ---------------- */
+/* ---------------- 题目：全文展示 / 编辑切换 ---------------- */
+function renderProblemDisplay(text) { $("#problem-display").textContent = text || ""; }
+function setProblemDisplayMode(on) {
+  $("#problem-input").classList.toggle("hidden", on);
+  $("#problem-display").classList.toggle("hidden", !on);
+  $("#btn-edit-problem").classList.toggle("hidden", !on);
+}
+function setProblemText(text) {
+  $("#problem-input").value = text || "";
+  renderProblemDisplay(text);
+  localStorage.setItem("cp_problem", text || "");
+  setProblemDisplayMode(!!(text && text.trim()));   // 有题 → 全文展示；无题 → 编辑框
+}
+function editProblem() { setProblemDisplayMode(false); $("#problem-input").focus(); }
+
 function initPersistence() {
   const inp = $("#problem-input");
   const saved = localStorage.getItem("cp_problem");
-  if (saved) inp.value = saved;
-  const savedH = localStorage.getItem("cp_problem_h");
-  if (savedH) inp.style.height = savedH + "px";
+  if (saved) { inp.value = saved; renderProblemDisplay(saved); }
+  setProblemDisplayMode(!!(saved && saved.trim()));
   let t;
   inp.addEventListener("input", () => {
     analysisStale = true;        // 题面改了 → 之前的分析判定作废
     currentProblemId = "";       // 手动改题 → 视为新题（待分析后入库）
     clearTimeout(t); t = setTimeout(() => localStorage.setItem("cp_problem", inp.value), 400);
   });
-  // 记忆题目框被拖拽后的高度
-  if (window.ResizeObserver) {
-    let ht;
-    new ResizeObserver(() => {
-      clearTimeout(ht);
-      ht = setTimeout(() => localStorage.setItem("cp_problem_h", Math.round(inp.offsetHeight)), 300);
-    }).observe(inp);
-  }
 }
 
 /* ---------------- 事件绑定 ---------------- */
 function bind() {
   $("#btn-analyze").onclick = runAnalyze;
+  $("#btn-edit-problem").onclick = editProblem;
   $("#btn-run").onclick = runCode;
   $("#btn-submit").onclick = submitCode;
   $("#btn-copy").onclick = copyCode;
@@ -1136,8 +1232,7 @@ function bindAuth() {
 
 /* ---------------- 启动 ---------------- */
 initAgentTeam();
-teamPinned = localStorage.getItem("cp_team_open") === "1";
-setTeamOpenClass(teamPinned);   // 默认收起为迷你状态条
+setTeamOpenClass(false);   // 默认收起为迷你状态条，工作时自动展开
 bind();
 bindAuth();
 initPanels();

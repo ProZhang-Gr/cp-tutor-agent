@@ -20,14 +20,35 @@ def _user_cond(model, user_id):
 
 
 def record(problem_title, problem_type, difficulty, passed,
-           tests_passed, tests_total, score, error_kind, user_id=None, problem_id=None):
+           tests_passed, tests_total, score, error_kind, user_id=None,
+           problem_id=None, code=None):
     with session_scope() as s:
         s.add(Submission(
             user_id=user_id, ts=time.time(), problem_id=problem_id,
             problem_title=problem_title, problem_type=problem_type, difficulty=difficulty,
             passed=1 if passed else 0, tests_passed=tests_passed,
             tests_total=tests_total, score=score, error_kind=error_kind,
+            code=code,
         ))
+
+
+def list_submissions(user_id, problem_id, limit=30):
+    """某题在当前用户（或游客桶）下的历次提交，按时间倒序，含源代码。"""
+    if not problem_id:
+        return []
+    with session_scope() as s:
+        rows = list(s.scalars(
+            select(Submission)
+            .where(_user_cond(Submission, user_id), Submission.problem_id == problem_id)
+            .order_by(Submission.ts.desc())
+            .limit(limit)
+        ))
+        return [{
+            "id": r.id, "ts": r.ts,
+            "passed": bool(r.passed), "error_kind": r.error_kind or "AC",
+            "tests_passed": r.tests_passed, "tests_total": r.tests_total,
+            "score": r.score, "code": r.code or "",
+        } for r in rows]
 
 
 def stats(user_id=None):

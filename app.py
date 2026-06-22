@@ -229,6 +229,12 @@ def solved(arena_session: str = Cookie(default=None)):
     return {"solved": progress.solved_problem_ids(_uid(arena_session))}
 
 
+@app.get("/api/submissions")
+def submissions(problem_id: str = "", arena_session: str = Cookie(default=None)):
+    """某题的历次提交（含源代码），按时间倒序。"""
+    return {"submissions": progress.list_submissions(_uid(arena_session), problem_id or None)}
+
+
 @app.post("/api/save-problem")
 def save_problem(req: SaveProblemReq, arena_session: str = Cookie(default=None)):
     pid = progress.add_user_problem(_uid(arena_session), req.title,
@@ -295,6 +301,7 @@ def evaluate(req: EvaluateReq, request: Request, arena_session: str = Cookie(def
                     error_kind=summary.get("error_kind", "AC"),
                     user_id=uid,
                     problem_id=req.problem_id or None,
+                    code=req.code,
                 )
             yield sse({"event": "done"})
         except Exception as e:

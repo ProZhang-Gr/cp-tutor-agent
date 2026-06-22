@@ -61,12 +61,15 @@
               <button type="button" class="pb-chip" data-diff="困难">困难</button>
               <button type="button" class="pb-chip pb-chip-ac" data-ac="1">只看未过</button>
             </div>
+            <div id="pb-progress" class="pb-progress"></div>
             <div id="pb-list" class="pb-list"></div>
           </div>
         </div>
       </div>
       <textarea id="problem-input" class="problem-input"
-        placeholder="粘贴题目描述（含输入/输出格式与样例），或从上方题库选择。&#10;可拖拽右下角调整高度。"></textarea>
+        placeholder="粘贴题目描述（含输入/输出格式与样例），或从上方题库选择。"></textarea>
+      <div id="problem-display" class="problem-display hidden"></div>
+      <button id="btn-edit-problem" class="btn-edit-problem hidden">✎ 粘贴 / 换一道题</button>
       <button id="btn-analyze" class="btn btn-primary btn-block">▶ 启动智能体分析</button>
       <label class="deep-toggle"><input type="checkbox" id="deep-check"> 🧠 深度分析 <span class="pro-tag">PRO</span></label>
 
@@ -121,6 +124,7 @@
         <div class="io-tabs">
           <button class="io-tab active" data-io="custom">自定义输入</button>
           <button class="io-tab" data-io="result">判题结果</button>
+          <button class="io-tab" data-io="history">提交记录</button>
         </div>
         <div id="io-custom" class="io-pane active">
           <textarea id="custom-input" class="custom-input" placeholder="测试数据 → 点「运行」查看输出"></textarea>
@@ -129,6 +133,9 @@
         <div id="io-result" class="io-pane">
           <div id="verdict-bar" class="verdict-bar hidden"></div>
           <div id="test-results" class="test-results"></div>
+        </div>
+        <div id="io-history" class="io-pane">
+          <div id="sub-list" class="sub-list"></div>
         </div>
       </div>
     </section>
