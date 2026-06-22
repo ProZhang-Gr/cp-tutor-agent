@@ -4,6 +4,7 @@
 登录用户看自己的数据；游客（user_id 为空）共用一个游客桶。
 """
 import time
+from datetime import datetime
 
 from sqlalchemy import select
 
@@ -82,6 +83,12 @@ def stats(user_id=None):
             k = r.error_kind or "AC"
             err[k] = err.get(k, 0) + 1
 
+        # 每日活跃度（按本地日期计数），供前端画 GitHub 风格刷题日历热力图
+        daily = {}
+        for r in rows:
+            dk = datetime.fromtimestamp(r.ts).strftime("%Y-%m-%d")
+            daily[dk] = daily.get(dk, 0) + 1
+
         weak = sorted([m for m in type_mastery if m["rate"] < 100],
                       key=lambda x: (x["rate"], -x["count"]))[:3]
 
@@ -96,6 +103,7 @@ def stats(user_id=None):
         "avg_score": avg_score, "type_mastery": type_mastery,
         "difficulty_dist": by_diff, "error_dist": err,
         "weak_points": weak, "recent": recent,
+        "daily_activity": daily, "active_days": len(daily),
     }
 
 

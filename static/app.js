@@ -934,17 +934,8 @@ async function loadDashboard() {
   $("#st-rate").textContent = s.solve_rate + "%";
   $("#st-avg").textContent = s.avg_score;
 
-  // 雷达图：题型掌握度
-  const rLabels = s.type_mastery.map(m => m.type);
-  const rData = s.type_mastery.map(m => m.rate);
-  drawChart("radar", "chart-radar", {
-    type: "radar",
-    data: { labels: rLabels.length ? rLabels : ["暂无数据"],
-      datasets: [{ label: "掌握度 %", data: rData.length ? rData : [0],
-        backgroundColor: "rgba(31,111,102,.16)", borderColor: "#1F6F66",
-        borderWidth: 2, pointBackgroundColor: "#1F6F66", pointBorderColor: "#FBF7EF" }] },
-    options: radarOpts(),
-  });
+  // 刷题日历：GitHub 风格贡献热力图
+  renderHeatmap(s.daily_activity || {}, s.active_days || 0);
   // 判题结果分布
   const errColors = { AC: "#3C8B57", WA: "#BF4A30", TLE: "#C2922E", RE: "#7C5BC0", CE: "#7C5BC0", RUN: "#3A6EA5" };
   const eLabels = Object.keys(s.error_dist);
@@ -968,12 +959,41 @@ async function loadDashboard() {
     <td><span class="res-pill ${r.error_kind}">${r.error_kind}</span></td><td>${r.score}</td></tr>`).join("")
     : "<tr><td colspan='4' class='empty-hint'>还没有提交记录</td></tr>";
 }
-function radarOpts() {
-  return { scales: { r: { angleLines: { color: "rgba(110,102,87,.18)" },
-    grid: { color: "rgba(110,102,87,.18)" },
-    pointLabels: { color: "#6E6657", font: { size: 12, family: "IBM Plex Sans" } },
-    ticks: { color: "#9C9484", backdropColor: "transparent", stepSize: 25 }, min: 0, max: 100 } },
-    plugins: { legend: { labels: { color: "#6E6657", font: { family: "IBM Plex Sans" } } } } };
+// GitHub 风格刷题日历：近 53 周 × 7 天的贡献热力图
+function renderHeatmap(daily, activeDays) {
+  const heat = $("#cal-heat"), monthsEl = $("#cal-months");
+  if (!heat) return;
+  const DAY = 86400000, WEEKS = 53;
+  const MON = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  // 网格右下角对齐到本周六；左上角是约一年前的周日
+  const startSunday = new Date(today.getTime() - today.getDay() * DAY - (WEEKS - 1) * 7 * DAY);
+  // 提交次数→色阶（按学生低频提交场景用绝对计数，比分位更直观）
+  const level = (c) => c <= 0 ? 0 : c === 1 ? 1 : c === 2 ? 2 : c === 3 ? 3 : 4;
+
+  let cells = "", total = 0;
+  const cur = new Date(startSunday);
+  for (let w = 0; w < WEEKS; w++) {
+    for (let d = 0; d < 7; d++) {
+      const key = fmt(cur), c = daily[key] || 0;
+      total += c;
+      if (cur > today) cells += `<i class="cal-cell future"></i>`;
+      else cells += `<i class="cal-cell l${level(c)}" title="${key} · ${c} 次提交"></i>`;
+      cur.setTime(cur.getTime() + DAY);
+    }
+  }
+  heat.style.gridTemplateColumns = `repeat(${WEEKS},13px)`;
+  heat.innerHTML = cells;
+  // 月份轴：每当某周的周日落入新的月份就在该列打一个标签
+  let months = "", lastMon = -1;
+  for (let w = 0; w < WEEKS; w++) {
+    const d0 = new Date(startSunday.getTime() + w * 7 * DAY), m = d0.getMonth();
+    if (m !== lastMon) { lastMon = m; months += `<span class="cal-mon" style="grid-column:${w + 1}">${MON[m]}</span>`; }
+  }
+  if (monthsEl) { monthsEl.style.gridTemplateColumns = `repeat(${WEEKS},13px)`; monthsEl.innerHTML = months; }
+  const sub = $("#cal-sub");
+  if (sub) sub.textContent = `近一年 ${total} 次提交 · 活跃 ${activeDays} 天`;
 }
 function drawChart(key, canvasId, cfg) {
   if (charts[key]) charts[key].destroy();
