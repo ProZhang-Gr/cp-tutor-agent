@@ -450,7 +450,16 @@ body.resizing *{cursor:col-resize!important;user-select:none}
   background:linear-gradient(135deg,var(--gold),#d8a93f);color:#3a2c08;letter-spacing:.5px}
 .ana-sec.deep{border-left-color:var(--gold);background:rgba(190,142,44,.07)}
 .ana-sec.deep>summary{color:var(--gold)}
-#ana-deepdive{font-size:12.5px;line-height:1.7;color:var(--ink);white-space:pre-wrap}
+#ana-deepdive{font-size:12.5px;line-height:1.6;color:var(--ink)}
+.dd-steps{list-style:none;counter-reset:dd;display:flex;flex-direction:column;gap:8px;margin:0;padding:0}
+.dd-step{counter-increment:dd;position:relative;padding:8px 10px 8px 34px;border-radius:var(--r-sm);
+  background:rgba(190,142,44,.06);border:1px solid rgba(190,142,44,.18)}
+.dd-step::before{content:counter(dd);position:absolute;left:8px;top:8px;width:18px;height:18px;
+  display:flex;align-items:center;justify-content:center;border-radius:50%;
+  background:var(--gold);color:#3a2c08;font-family:var(--font-mono);font-size:10px;font-weight:700}
+.dd-step-t{display:block;font-weight:700;color:#9a7320;font-size:12.5px;margin-bottom:2px}
+.dd-step-d{display:block;color:var(--ink);font-size:12.5px;line-height:1.6}
+.dd-para{margin:0 0 7px;line-height:1.7}.dd-para:last-child{margin-bottom:0}
 .recharge-pkgs{display:flex;flex-direction:column;gap:9px;margin-top:6px}
 .pkg{font-family:var(--font-body);font-size:14px;font-weight:600;padding:13px;border-radius:var(--r-sm);
   border:1px solid var(--line);background:var(--field);color:var(--ink);cursor:pointer;transition:.15s}

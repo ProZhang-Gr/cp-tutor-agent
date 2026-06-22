@@ -51,10 +51,13 @@ ANALYZER_PROMPT = ChatPromptTemplate.from_messages([
     ("human", "题目如下：\n{problem}{extra}"),
 ])
 
-_DEEP_INSTR = ("\n\n【Pro 深度模式】请在 JSON 中额外输出字段 "
-               "\"deep_dive\"：一段 300-500 字的「解题推演」——像专家一样一步步推理"
-               "如何从题意出发，逐步逼近最优解（含关键观察、为何朴素做法不行、"
-               "如何优化到目标复杂度），用于帮学生看到完整思考链路。")
+_DEEP_INSTR = ("\n\n【Pro 深度模式】请在 JSON 中额外输出字段 \"deep_dive\"，"
+               "它是一个【数组】，把「解题推演」拆成 3-6 个清晰的推理步骤，"
+               "每个元素形如 {\"step\": \"该步小标题(4-10字，如 朴素想法/关键观察/优化思路)\", "
+               "\"detail\": \"这一步的推理，1-2 句话讲透，别写长段落\"}。"
+               "顺序要体现从题意一步步逼近最优解的思考链路"
+               "（典型：朴素做法→为何不够→关键观察→如何优化→复杂度核对）。"
+               "务必精炼分条，不要堆成一大段文字。")
 
 
 def analyze(problem, deep=False):
@@ -66,7 +69,30 @@ def analyze(problem, deep=False):
     data.setdefault("message", "")
     data.setdefault("type", "未知")
     data.setdefault("difficulty", "中等")
+    if deep:
+        data["deep_dive"] = _normalize_deep_dive(data.get("deep_dive"))
     return data
+
+
+def _normalize_deep_dive(dd):
+    """把「解题推演」统一成 [{step, detail}] 数组，兼容模型偶尔返回纯字符串。"""
+    if isinstance(dd, list):
+        out = []
+        for s in dd:
+            if isinstance(s, dict):
+                step = (s.get("step") or s.get("title") or "").strip()
+                detail = (s.get("detail") or s.get("text") or "").strip()
+                if detail or step:
+                    out.append({"step": step, "detail": detail or step})
+            elif isinstance(s, str) and s.strip():
+                out.append({"step": "", "detail": s.strip()})
+        return out
+    if isinstance(dd, str) and dd.strip():
+        # 退而求其次：按换行/分号粗切成几条，避免前端一大坨
+        parts = [p.strip() for p in dd.replace("；", "\n").split("\n") if p.strip()]
+        return [{"step": "", "detail": p} for p in parts] if len(parts) > 1 \
+            else [{"step": "", "detail": dd.strip()}]
+    return []
 
 
 # --------------------------------------------------------------------------

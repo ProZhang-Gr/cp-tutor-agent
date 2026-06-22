@@ -286,11 +286,24 @@ function renderAnalysis(a) {
   $("#ana-stars").textContent = "★".repeat(Math.round(score / 2)) + "☆".repeat(5 - Math.round(score / 2));
   $("#ana-complexity").textContent = a.target_complexity || "—";
   $("#ana-insight").textContent = a.key_insight || "—";
-  if (a.deep_dive) { $("#ana-deepdive").textContent = a.deep_dive; $("#ana-deepdive-wrap").classList.remove("hidden"); }
+  const dd = a.deep_dive;
+  const hasDeep = Array.isArray(dd) ? dd.length > 0 : !!(dd && String(dd).trim());
+  if (hasDeep) { $("#ana-deepdive").innerHTML = renderDeepDive(dd); $("#ana-deepdive-wrap").classList.remove("hidden"); }
   else $("#ana-deepdive-wrap").classList.add("hidden");
   $("#ana-pitfalls").innerHTML = (a.pitfalls || []).map(p => `<li>${esc(p)}</li>`).join("") || "<li>—</li>";
   $("#ana-knowledge").innerHTML = (a.knowledge_points || []).map(k => `<span class="chip">${esc(k)}</span>`).join("");
   return true;
+}
+// 解题推演：分步卡片，避免一大坨文字墙
+function renderDeepDive(dd) {
+  if (Array.isArray(dd)) {
+    return `<ol class="dd-steps">` + dd.map(s => {
+      const t = s.step ? `<span class="dd-step-t">${esc(s.step)}</span>` : "";
+      return `<li class="dd-step">${t}<span class="dd-step-d">${esc(s.detail || "")}</span></li>`;
+    }).join("") + `</ol>`;
+  }
+  // 兼容旧的纯字符串：按段落断开，至少别糊成一团
+  return String(dd).split(/\n+/).map(p => `<p class="dd-para">${esc(p.trim())}</p>`).join("");
 }
 function askTutorAbout() {
   const text = $("#problem-input").value.trim();
