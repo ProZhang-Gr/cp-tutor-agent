@@ -128,6 +128,12 @@ class RunReq(BaseModel):
     stdin: str = ""
 
 
+class ReviewCodeReq(BaseModel):
+    problem: str = ""
+    code: str
+    language: str = "python"
+
+
 class DebugReq(BaseModel):
     problem: str = ""
     code: str
@@ -394,6 +400,24 @@ def chat(req: ChatReq, request: Request, arena_session: str = Cookie(default=Non
         except Exception as e:
             yield sse({"event": "error", "message": str(e)})
     return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+# ------------------------- 导师审阅：行内批注 + 可选修订 -------------------------
+@app.post("/api/review-code")
+def review_code(req: ReviewCodeReq, request: Request, arena_session: str = Cookie(default=None)):
+    uid = _uid(arena_session)
+    if not req.code.strip():
+        return JSONResponse({"error": "请先在编辑器里写代码"}, status_code=400)
+    if len(req.code) > settings.MAX_CODE_CHARS:
+        return JSONResponse({"error": "代码过长"}, status_code=400)
+    blocked = _abuse_block(request, uid, "review")
+    if blocked:
+        return blocked
+    try:
+        result = agents.review_for_edit(req.problem, req.code, req.language)
+        return JSONResponse(result)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 # ------------------------- 直接运行代码（自定义输入） -------------------------

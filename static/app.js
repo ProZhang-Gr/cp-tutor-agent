@@ -126,6 +126,7 @@ require(["vs/editor/editor.main"], () => {
     language: "python", theme: "arena", fontSize: 14, minimap: { enabled: false },
     fontFamily: "JetBrains Mono, Consolas, monospace",
     automaticLayout: true, scrollBeyondLastLine: false, padding: { top: 12 },
+    glyphMargin: true,   // 供导师审阅在出问题的行打批注图标
   });
   // 恢复上次代码
   const savedCode = localStorage.getItem("cp_code");
@@ -217,7 +218,7 @@ async function runAnalyze() {
         if (r.id) {
           currentProblemId = r.id;
           await loadProblemList();
-          $("#problem-select").value = r.id;
+          setPbCurrent(currentAnalysis.title || "未命名");
           toast("📌 已加入「我的题目」：" + (currentAnalysis.title || ""));
         }
       } catch (e) {}
@@ -354,6 +355,17 @@ function renderTests(judge) {
     ? `🟢 真值判定 · 官方测试数据 ${judge.passed}/${judge.total} 通过`
     : `🟡 差分对拍 · 暴力解当真值${judge.stress ? "（" + esc(judge.stress.note) + "）" : ""}`;
 
+  // 差分对拍对很多人陌生，给一个可展开的「这是什么」解释
+  const stressHelp = mode === "stress" ? `
+    <details class="judge-help">
+      <summary>差分对拍是什么？为什么不是 100% 确定？</summary>
+      <div>这道题<b>没有官方测试数据</b>，系统无从知道「正确答案」。于是判题官让 AI 现写两段程序：
+        ①一个<b>暴力解</b>（笨但几乎一定对、只是慢），②一个<b>随机数据生成器</b>。
+        先用题面样例确认暴力解可信，再生成大量随机输入，把<b>你的解</b>和<b>暴力解</b>在同一输入上的输出逐一比对——
+        <b>第一个不一致的输入，就是你代码的最小反例</b>。这正是竞赛选手手动「对拍」的自动化版：用慢而正确的程序给快而可能错的程序当裁判。
+        局限：它是<b>经验性结论</b>（没找到反例 ≠ 数学证明正确），所以对拍通过的给分会比真值判定保守一些。</div>
+    </details>` : "";
+
   // 最小反例 + 调试入口（最重要，放最上面）
   let counterHtml = "";
   const ce = judge.counterexample;
@@ -384,7 +396,7 @@ function renderTests(judge) {
     </div>`).join("");
 
   $("#test-results").innerHTML =
-    `<div class="judge-mode ${mode}">${modeLabel}</div>` + counterHtml +
+    `<div class="judge-mode ${mode}">${modeLabel}</div>` + stressHelp + counterHtml +
     (cases ? `<div class="cases-wrap">${cases}</div>` : "");
 }
 
@@ -535,7 +547,190 @@ function addMsg(role, text) {
   return div;
 }
 
-/* ---------------- 题库 ---------------- */
+/* ---------------- 导师审阅：行内批注 + 修订补丁 ---------------- */
+let reviewDecorations = [];   // 当前 Monaco 批注装饰 id
+let reviewFix = null;         // 待应用的修订 {code, explain}
+let preApplySnapshot = null;  // 应用修订前的代码快照（用于撤销）
+let diffEditor = null;        // diff 弹窗里的 Monaco diff 编辑器实例
+const SEV_LABEL = { high: "严重", med: "注意", low: "建议" };
+
+async function requestReview() {
+  const code = editor ? editor.getValue() : "";
+  if (!code.trim()) return toast("请先在编辑器里写代码");
+  const btn = $("#btn-review");
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = "🔎 导师审阅中…";
+  setAgent("review", "working");
+  const panel = $("#review-panel");
+  panel.classList.remove("hidden");
+  panel.innerHTML = '<div class="empty-hint">导师正在逐行通读你的代码…</div>';
+  try {
+    const r = await fetch("/api/review-code", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        problem: $("#problem-input").value.trim(),
+        code, language: $("#lang-select").value,
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok || data.error) {
+      panel.innerHTML = `<div class="empty-hint">${esc(data.error || "审阅失败")}</div>`;
+      return;
+    }
+    renderReviewResult(data);
+  } catch (e) {
+    panel.innerHTML = '<div class="empty-hint">审阅失败，请稍后再试</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+    setAgent("review", "done");
+  }
+}
+
+function renderReviewResult(data) {
+  const panel = $("#review-panel");
+  const anns = data.annotations || [];
+  applyReviewDecorations(anns);
+  let html = `<div class="rv-head">🔎 导师审阅<button class="rv-clear" id="rv-clear" title="清除代码上的批注高亮">清除批注</button></div>`;
+  if (data.summary) html += `<div class="rv-summary">${esc(data.summary)}</div>`;
+  if (anns.length) {
+    html += `<div class="rv-anns">` + anns.map(a => `
+      <button type="button" class="rv-ann sev-${a.severity}" data-line="${a.line}" title="点击跳到第 ${a.line} 行">
+        <span class="rv-ann-line">L${a.line}</span>
+        <span class="rv-ann-sev">${SEV_LABEL[a.severity] || "注意"}</span>
+        <span class="rv-ann-note">${esc(a.note)}</span>
+      </button>`).join("") + `</div>`;
+  } else {
+    html += `<div class="rv-summary-sub">没有需要单独标注的行。</div>`;
+  }
+  if (data.has_fix && data.proposed_code) {
+    reviewFix = { code: data.proposed_code, explain: data.fix_explanation || "" };
+    html += `<div class="rv-fix">
+        <div class="rv-fix-txt">🔧 导师准备了一份修订版${data.fix_explanation ? "：" + esc(data.fix_explanation) : ""}</div>
+        <button class="btn btn-primary btn-block" id="rv-view-diff">查看修订对比 · 决定是否应用</button>
+      </div>`;
+  } else { reviewFix = null; }
+  panel.innerHTML = html;
+  $$("#review-panel .rv-ann").forEach(b => b.onclick = () => jumpToLine(parseInt(b.dataset.line)));
+  const clr = $("#rv-clear"); if (clr) clr.onclick = clearReviewDecorations;
+  const vd = $("#rv-view-diff"); if (vd) vd.onclick = openDiffModal;
+}
+
+function jumpToLine(line) {
+  if (!editor || !line) return;
+  editor.revealLineInCenter(line);
+  editor.setPosition({ lineNumber: line, column: 1 });
+  editor.focus();
+}
+
+function applyReviewDecorations(anns) {
+  if (!editor || !window.monaco) return;
+  const total = editor.getModel().getLineCount();
+  const decos = (anns || []).filter(a => a.line >= 1 && a.line <= total).map(a => ({
+    range: new monaco.Range(a.line, 1, a.line, 1),
+    options: {
+      isWholeLine: true,
+      className: "ann-line sev-" + a.severity,
+      glyphMarginClassName: "ann-glyph sev-" + a.severity,
+      glyphMarginHoverMessage: { value: "**导师批注**：" + a.note },
+      overviewRuler: { color: "rgba(191,74,48,.7)", position: monaco.editor.OverviewRulerLane.Right },
+    },
+  }));
+  reviewDecorations = editor.deltaDecorations(reviewDecorations, decos);
+}
+
+function clearReviewDecorations() {
+  if (editor) reviewDecorations = editor.deltaDecorations(reviewDecorations, []);
+  const clr = $("#rv-clear"); if (clr) { clr.textContent = "已清除"; clr.disabled = true; }
+}
+
+/* ----- 修订 diff 弹窗：预览 → 应用/拒绝（应用后可撤销） ----- */
+function openDiffModal() {
+  if (!reviewFix || !window.monaco) return;
+  $("#diff-explain").textContent = reviewFix.explain || "";
+  $("#diff-modal").classList.remove("hidden");
+  const orig = monaco.editor.createModel(editor.getValue(), "python");
+  const modi = monaco.editor.createModel(reviewFix.code, "python");
+  if (diffEditor) { diffEditor.dispose(); diffEditor = null; }
+  diffEditor = monaco.editor.createDiffEditor($("#diff-editor"), {
+    theme: "arena", readOnly: true, automaticLayout: true,
+    fontSize: 13, renderSideBySide: true, minimap: { enabled: false },
+    fontFamily: "JetBrains Mono, Consolas, monospace",
+  });
+  diffEditor.setModel({ original: orig, modified: modi });
+}
+
+function closeDiffModal() {
+  $("#diff-modal").classList.add("hidden");
+  if (diffEditor) {
+    const m = diffEditor.getModel();
+    diffEditor.dispose(); diffEditor = null;
+    if (m) { if (m.original) m.original.dispose(); if (m.modified) m.modified.dispose(); }
+  }
+}
+
+function applyFix() {
+  if (!reviewFix || !editor) return closeDiffModal();
+  preApplySnapshot = editor.getValue();
+  const model = editor.getModel();
+  editor.pushUndoStop();
+  editor.executeEdits("tutor-fix", [{ range: model.getFullModelRange(), text: reviewFix.code }]);
+  editor.pushUndoStop();
+  closeDiffModal();
+  clearReviewDecorations();
+  toast("✅ 已应用导师修订 · Ctrl+Z 或下方「撤销」可回退");
+  const panel = $("#review-panel");
+  if (!$("#rv-undo-btn")) {
+    const bar = document.createElement("div");
+    bar.className = "rv-undo";
+    bar.innerHTML = `<span>已应用修订</span><button class="btn btn-ghost" id="rv-undo-btn">↶ 撤销，恢复我原来的代码</button>`;
+    panel.appendChild(bar);
+    $("#rv-undo-btn").onclick = undoFix;
+  }
+}
+
+function undoFix() {
+  if (preApplySnapshot == null || !editor) return;
+  const model = editor.getModel();
+  editor.pushUndoStop();
+  editor.executeEdits("tutor-fix-undo", [{ range: model.getFullModelRange(), text: preApplySnapshot }]);
+  editor.pushUndoStop();
+  preApplySnapshot = null;
+  const b = $("#rv-undo-btn"); if (b) b.closest(".rv-undo").remove();
+  toast("已恢复你原来的代码");
+}
+
+/* ---------------- 结果区高度可拖动 ---------------- */
+function initIoResize() {
+  const panel = $("#io-panel"), handle = $("#io-resize");
+  if (!panel || !handle) return;
+  const saved = parseInt(localStorage.getItem("cp_io_h") || "0");
+  if (saved >= 160) panel.style.height = saved + "px";
+  let startY = 0, startH = 0;
+  const onMove = (e) => {
+    const dy = startY - e.clientY;   // 把手往上拖 → 结果区增高
+    const h = Math.max(160, Math.min(window.innerHeight - 230, startH + dy));
+    panel.style.height = h + "px";
+  };
+  const onUp = () => {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+    document.body.style.userSelect = "";
+    localStorage.setItem("cp_io_h", String(Math.round(panel.offsetHeight)));
+  };
+  handle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    startY = e.clientY; startH = panel.offsetHeight;
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
+/* ---------------- 题库浮层下拉 ---------------- */
+let problemItems = [];      // 合并后的题目（题库 + 我的题目）
+let pbDiffFilter = "";      // 当前难度筛选（""=全部）
+let pbAcOnly = false;       // 只看未通过
+
 async function loadProblemList() {
   const [bank, mine, solvedResp] = await Promise.all([
     fetch("/api/problems").then(r => r.json()),
@@ -543,18 +738,65 @@ async function loadProblemList() {
     fetch("/api/solved").then(r => r.json()).catch(() => ({ solved: [] })),
   ]);
   const solved = new Set(solvedResp.solved || []);
-  const opt = (p) => {
-    const ok = solved.has(p.id) ? "✓ " : "";
-    return `<option value="${p.id}">${ok}${esc(p.title)}（${esc(p.difficulty)}·${esc(p.type)}）</option>`;
-  };
-  let html = '<option value="">— 从题库选择 —</option>';
-  html += `<optgroup label="题库">${bank.map(opt).join("")}</optgroup>`;
+  const toItem = (p, group) => ({
+    id: String(p.id), title: p.title || "未命名",
+    difficulty: p.difficulty || "未知", type: p.type || "其他",
+    solved: solved.has(p.id), group,
+  });
+  problemItems = (bank || []).map(p => toItem(p, "题库"));
   if (mine && mine.length)
-    html += `<optgroup label="我的题目">${mine.map(opt).join("")}</optgroup>`;
-  const cur = $("#problem-select").value;
-  $("#problem-select").innerHTML = html;
-  if (cur) $("#problem-select").value = cur;     // 刷新后保留当前选择
+    problemItems = problemItems.concat(mine.map(p => toItem(p, "我的题目")));
+  renderProblemList();
 }
+
+function renderProblemList() {
+  const q = ($("#pb-search").value || "").trim().toLowerCase();
+  const list = problemItems.filter(p => {
+    if (pbDiffFilter && p.difficulty !== pbDiffFilter) return false;
+    if (pbAcOnly && p.solved) return false;
+    if (q && !(p.title.toLowerCase().includes(q) || p.type.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  $("#pb-count").textContent = list.length + " 题";
+  if (!list.length) { $("#pb-list").innerHTML = '<div class="pb-empty">没有匹配的题目</div>'; return; }
+  let html = "", lastGroup = null;
+  list.forEach(p => {
+    if (p.group !== lastGroup) { html += `<div class="pb-group">${esc(p.group)}</div>`; lastGroup = p.group; }
+    const diffCls = (p.difficulty === "简单" || p.difficulty === "入门") ? "easy"
+                  : (p.difficulty === "困难" ? "hard" : "mid");
+    const active = p.id === String(currentProblemId) ? " active" : "";
+    html += `<button type="button" class="pb-item${active}" data-id="${esc(p.id)}">
+        <span class="pb-status ${p.solved ? "ac" : "todo"}">${p.solved ? "AC" : "○"}</span>
+        <span class="pb-name">${esc(p.title)}</span>
+        <span class="pb-tags"><span class="pb-tag ${diffCls}">${esc(p.difficulty)}</span><span class="pb-tag type">${esc(p.type)}</span></span>
+      </button>`;
+  });
+  $("#pb-list").innerHTML = html;
+  $$("#pb-list .pb-item").forEach(b => b.onclick = () => { loadProblem(b.dataset.id); closePbPanel(); });
+}
+
+function setPbCurrent(title) { $("#pb-current").textContent = title || "题库"; }
+function openPbPanel() {
+  const panel = $("#pb-panel");
+  panel.classList.remove("hidden");
+  $("#pb-dropdown").classList.add("open");
+  // 浮层用 fixed 定位，避免被左栏 overflow 裁掉；按钮右对齐
+  const r = $("#pb-toggle").getBoundingClientRect();
+  const w = 340;
+  panel.style.width = w + "px";
+  panel.style.top = (r.bottom + 6) + "px";
+  panel.style.left = Math.max(12, r.right - w) + "px";
+  renderProblemList();
+  $("#pb-search").focus();
+}
+function closePbPanel() {
+  $("#pb-panel").classList.add("hidden");
+  $("#pb-dropdown").classList.remove("open");
+}
+function togglePbPanel() {
+  $("#pb-panel").classList.contains("hidden") ? openPbPanel() : closePbPanel();
+}
+
 async function loadProblem(pid) {
   if (!pid) return;
   const p = await fetch("/api/problems/" + pid).then(r => r.json());
@@ -565,7 +807,7 @@ async function loadProblem(pid) {
   localStorage.setItem("cp_problem", text);
   resetAnalysisState();          // 换题 → 旧分析/提示作废
   currentProblemId = pid;        // 记住当前题目 id（用于 AC 标记）
-  $("#problem-select").value = pid;
+  setPbCurrent(p.title);
   toast("已载入：" + p.title);
 }
 
@@ -758,7 +1000,23 @@ function bind() {
   $("#btn-gen-report").onclick = genReport;
   $("#btn-dl-report").onclick = downloadReport;
   $("#chat-input").onkeydown = (e) => { if (e.key === "Enter") sendChat(); };
-  $("#problem-select").onchange = (e) => loadProblem(e.target.value);
+  $("#btn-review").onclick = requestReview;
+  // 题库浮层下拉
+  $("#pb-toggle").onclick = togglePbPanel;
+  $("#pb-search").oninput = renderProblemList;
+  $$("#pb-filters .pb-chip").forEach(c => c.onclick = () => {
+    if (c.dataset.ac != null) {            // 「只看未过」独立开关
+      pbAcOnly = !pbAcOnly; c.classList.toggle("active", pbAcOnly);
+    } else {                               // 难度单选
+      pbDiffFilter = c.dataset.diff || "";
+      $$("#pb-filters .pb-chip[data-diff]").forEach(x => x.classList.toggle("active", x === c));
+    }
+    renderProblemList();
+  });
+  document.addEventListener("click", (e) => {
+    if (!$("#pb-dropdown").contains(e.target)) closePbPanel();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closePbPanel(); closeDiffModal(); } });
   $$(".io-tab").forEach(t => t.onclick = () => switchIO(t.dataset.io));
   $$(".tab").forEach(t => t.onclick = () => {
     $$(".tab").forEach(x => x.classList.remove("active"));
@@ -767,6 +1025,11 @@ function bind() {
     $("#view-" + t.dataset.view).classList.add("active");
     if (t.dataset.view === "dashboard") loadDashboard();
   });
+  // 导师修订 diff 弹窗
+  $("#diff-close").onclick = closeDiffModal;
+  $("#diff-reject").onclick = closeDiffModal;
+  $("#diff-apply").onclick = applyFix;
+  $("#diff-modal").onclick = (e) => { if (e.target.id === "diff-modal") closeDiffModal(); };
   // 全局快捷键：Ctrl+S 提交（编辑器外也生效）
   window.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); submitCode(); }
@@ -879,5 +1142,6 @@ bind();
 bindAuth();
 initPanels();
 initPersistence();
+initIoResize();
 loadProblemList();
 loadMe();

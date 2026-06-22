@@ -44,9 +44,26 @@
     <section class="col col-left reveal" id="col-left" style="--d:.05s">
       <div class="sec-head">
         <span class="sec-no">01</span><h2>题目</h2>
-        <select id="problem-select" class="mini-select">
-          <option value="">题库 ▾</option>
-        </select>
+        <div class="pb-dropdown" id="pb-dropdown">
+          <button type="button" id="pb-toggle" class="pb-toggle" title="从题库选择题目">
+            <span id="pb-current">题库</span><span class="pb-caret">▾</span>
+          </button>
+          <div id="pb-panel" class="pb-panel hidden">
+            <div class="pb-search-row">
+              <input id="pb-search" class="pb-search" placeholder="🔍 搜索题名 / 知识点…" autocomplete="off">
+              <span class="pb-count" id="pb-count"></span>
+            </div>
+            <div class="pb-filters" id="pb-filters">
+              <button type="button" class="pb-chip active" data-diff="">全部</button>
+              <button type="button" class="pb-chip" data-diff="入门">入门</button>
+              <button type="button" class="pb-chip" data-diff="简单">简单</button>
+              <button type="button" class="pb-chip" data-diff="中等">中等</button>
+              <button type="button" class="pb-chip" data-diff="困难">困难</button>
+              <button type="button" class="pb-chip pb-chip-ac" data-ac="1">只看未过</button>
+            </div>
+            <div id="pb-list" class="pb-list"></div>
+          </div>
+        </div>
       </div>
       <textarea id="problem-input" class="problem-input"
         placeholder="粘贴题目描述（含输入/输出格式与样例），或从上方题库选择。&#10;可拖拽右下角调整高度。"></textarea>
@@ -99,7 +116,8 @@
       </div>
       <div id="editor" class="editor"></div>
 
-      <div class="io-panel">
+      <div class="io-panel" id="io-panel">
+        <div class="io-resize" id="io-resize" title="拖动调整结果区高度"></div>
         <div class="io-tabs">
           <button class="io-tab active" data-io="custom">自定义输入</button>
           <button class="io-tab" data-io="result">判题结果</button>
@@ -136,6 +154,9 @@
         <div id="adaptive-note" class="adaptive-note hidden"></div>
         <button id="btn-hint" class="btn btn-accent btn-block">💡 请求下一层提示</button>
         <div id="hint-box" class="hint-box"></div>
+
+        <button id="btn-review" class="btn btn-review btn-block" title="导师通读你的代码，在出问题的行打批注，并可给出修订版">🔎 请导师审阅并给修改建议</button>
+        <div id="review-panel" class="review-panel hidden"></div>
 
         <div class="chat">
           <div id="chat-log" class="chat-log"></div>
@@ -220,6 +241,22 @@
       <button class="pkg" data-yuan="98">¥98 → 980 点</button>
     </div>
     <div class="auth-hint">演示用模拟充值，不接真实支付。Pro 不受每日额度限制，每次调用消耗 1 点。</div>
+  </div>
+</div>
+
+<!-- 导师修订 diff 预览弹窗 -->
+<div class="modal-overlay hidden" id="diff-modal">
+  <div class="modal modal-diff">
+    <button class="modal-close" id="diff-close">×</button>
+    <div class="diff-head">
+      <h3>🔧 导师修订建议 · 左为你的代码，右为修订版</h3>
+      <p id="diff-explain" class="diff-explain"></p>
+    </div>
+    <div id="diff-editor" class="diff-editor"></div>
+    <div class="diff-actions">
+      <button class="btn btn-ghost" id="diff-reject">✗ 不采用</button>
+      <button class="btn btn-primary" id="diff-apply">✓ 应用到编辑器（可 Ctrl+Z 撤销）</button>
+    </div>
   </div>
 </div>
 

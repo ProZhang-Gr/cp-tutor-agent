@@ -186,6 +186,81 @@ def review(problem, code, language="python"):
 
 
 # --------------------------------------------------------------------------
+# 5b. 审阅导师（主动反馈：行内批注 + 可选整段修订）
+# --------------------------------------------------------------------------
+REVIEW_EDIT_SYS = """你是一名手把手带学生的算法竞赛导师。学生把题目和他写到一半/可能有问题的代码交给你，
+你要像老师在纸上批改一样：先逐行看，在出问题或思路不对的【具体行】上画批注，再判断要不要给一份修订版代码。
+
+代码的行号从 1 开始，与学生看到的完全一致。请严格按行号定位。
+
+请只输出 JSON：
+{
+  "summary": "两三句话的总体点评：思路对不对、主要问题在哪",
+  "annotations": [
+    {
+      "line": 该问题所在的行号(整数, 从1开始),
+      "severity": "high" | "med" | "low",   // high=会导致错误答案/崩溃, med=隐患/边界, low=风格/可读性
+      "note": "这一行/这块的问题或思路提示，一句话点透，像老师批注（可给方向，别直接写出整段答案）"
+    }
+  ],
+  "has_fix": true 或 false,                 // 是否给出修订版代码
+  "proposed_code": "当 has_fix=true：完整可运行的修订版代码（保留学生原有风格，只改该改的）；否则空串",
+  "fix_explanation": "当 has_fix=true：用一两句说明你改了什么、为什么"
+}
+
+要求：
+- annotations 控制在 1~6 条，挑最关键的行，别每行都标。
+- 如果代码基本是对的，annotations 可以只放优化/风险点，has_fix 可为 false。
+- 如果学生只写了骨架/空函数，proposed_code 可给一个合理的解题框架（带 TODO 注释引导），但不要直接奉送整题最优解的全部细节——保留让他思考的空间。
+- proposed_code 必须是完整的、能独立运行的代码（不是片段），语言与学生一致。"""
+
+REVIEW_EDIT_PROMPT = ChatPromptTemplate.from_messages([
+    SystemMessage(content=REVIEW_EDIT_SYS),
+    ("human", "题目：\n{problem}\n\n学生的代码（{language}，已标注行号供你定位）：\n{numbered_code}"),
+])
+
+
+def _number_lines(code):
+    """给代码逐行编号，帮助模型把批注精准对到行。"""
+    lines = (code or "").split("\n")
+    return "\n".join("%4d | %s" % (i + 1, ln) for i, ln in enumerate(lines))
+
+
+def review_for_edit(problem, code, language="python"):
+    """审阅导师：返回行内批注列表 + 可选的整段修订代码。"""
+    chain = REVIEW_EDIT_PROMPT | get_json_llm(temperature=0.2, max_tokens=2600)
+    resp = chain.invoke({
+        "problem": problem or "（学生未提供题面，请仅就代码本身的正确性/风格审阅）",
+        "language": language,
+        "numbered_code": _number_lines(code),
+    })
+    data = parse_json(resp.content)
+    # 规整：行号转 int、过滤越界、限制条数
+    total = len((code or "").split("\n"))
+    cleaned = []
+    for a in (data.get("annotations") or []):
+        try:
+            ln = int(a.get("line", 0))
+        except (TypeError, ValueError):
+            continue
+        if ln < 1 or ln > total:
+            continue
+        sev = a.get("severity", "med")
+        if sev not in ("high", "med", "low"):
+            sev = "med"
+        note = (a.get("note") or "").strip()
+        if note:
+            cleaned.append({"line": ln, "severity": sev, "note": note})
+    return {
+        "summary": (data.get("summary") or "").strip(),
+        "annotations": cleaned[:6],
+        "has_fix": bool(data.get("has_fix")) and bool((data.get("proposed_code") or "").strip()),
+        "proposed_code": (data.get("proposed_code") or "").strip(),
+        "fix_explanation": (data.get("fix_explanation") or "").strip(),
+    }
+
+
+# --------------------------------------------------------------------------
 # 5. 测试生成师
 # --------------------------------------------------------------------------
 TESTGEN_SYS = """你是一名测试用例设计专家。为算法题构造一组高质量测试用例，
