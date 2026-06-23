@@ -7,6 +7,17 @@
   const $c = (s) => document.querySelector(s);
   const TAG_CLS = { "求助": "ask", "题解": "solu", "讨论": "disc", "反馈": "fb" };
   const TAGS = ["求助", "题解", "讨论", "反馈"];
+  // 不同板块给不同的标题 / 正文占位提示
+  const PH = {
+    "求助": { t: "描述你卡在哪，如「二分边界总差一，lo/hi 到底怎么定？」",
+              b: "贴上题目、你的思路、卡住的点或报错信息，方便大家帮你定位…" },
+    "题解": { t: "你的解法亮点，如「单调栈 O(n) 解接雨水」",
+              b: "讲讲核心思路、时空复杂度、关键代码或你踩过的坑…" },
+    "讨论": { t: "想讨论的话题，如「DP 的状态到底怎么定义才不漏」",
+              b: "抛出你的观点或疑问，欢迎大家一起来聊…" },
+    "反馈": { t: "你的建议或遇到的问题，如「希望算法图解加并查集」",
+              b: "具体描述你想要的功能，或使用中遇到的问题…" },
+  };
   let cmTag = "";
   let cmInited = false;
 
@@ -78,10 +89,17 @@
         <div id="cm-c-err" class="cm-err"></div>
       </div>`;
     let tag = "讨论";
+    const applyPH = (t) => {
+      const ph = PH[t] || PH["讨论"];
+      $c("#cm-c-title").placeholder = ph.t;
+      $c("#cm-c-body").placeholder = ph.b;
+    };
     $c("#cm-c-tags").querySelectorAll(".cm-ctag").forEach((b) => (b.onclick = () => {
       tag = b.dataset.tag;
       $c("#cm-c-tags").querySelectorAll(".cm-ctag").forEach((x) => x.classList.toggle("active", x === b));
+      applyPH(tag);   // 切板块 → 占位提示随之变化
     }));
+    applyPH(tag);     // 初始占位提示与默认板块（讨论）一致
     $c("#cm-c-submit").onclick = () => submitPost(() => tag);
     openDrawer();
     setTimeout(() => $c("#cm-c-title").focus(), 80);
