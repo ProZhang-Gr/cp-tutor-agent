@@ -1225,14 +1225,16 @@ async function drawShareCard(rep) {
   const qrX = W - M - 24 - qrBox, qrY = BY + 26;
   roundRect(ctx, M, BY, W - 2 * M, BH, 18); ctx.fillStyle = tint; ctx.fill();
   ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.stroke();
-  // 左：每日鼓励
+  // 左：每日鼓励 + 站点地址（地址紧跟在鼓励语下方）
+  const SITE_URL = "https://cp-tutor-agent.onrender.com";
   ctx.textAlign = "left";
   ctx.fillStyle = gold; ctx.font = "700 13px " + MONO; ctx.fillText("🌱 今日鼓励", M + 26, BY + 40);
   ctx.fillStyle = ink; ctx.font = "500 19px " + SERIF;
-  wrapText(ctx, dailyEncourage(rep.date), M + 26, BY + 78, qrX - (M + 26) - 24, 30, 3);
-  // 右：二维码（指向当前站点，扫码即体验）
-  const site = (window.location && window.location.origin) || "https://cp-tutor-agent.onrender.com";
-  const okQR = drawQRCode(ctx, site, qrX, qrY, qrBox, { dark: ink, light: paper, quiet: 8 });
+  const encLines = wrapText(ctx, dailyEncourage(rep.date), M + 26, BY + 78, qrX - (M + 26) - 24, 30, 2);
+  ctx.fillStyle = accent; ctx.font = "600 13px " + MONO;
+  ctx.fillText("🔗 " + SITE_URL, M + 26, BY + 78 + encLines * 30 + 6);
+  // 右：二维码（指向站点，扫码即体验）
+  const okQR = drawQRCode(ctx, SITE_URL, qrX, qrY, qrBox, { dark: ink, light: paper, quiet: 8 });
   ctx.textAlign = "center";
   if (okQR) {
     ctx.fillStyle = inkDim; ctx.font = "600 13px " + SANS;
