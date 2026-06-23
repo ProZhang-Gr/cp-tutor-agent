@@ -77,7 +77,8 @@ def _post_brief(p):
     }
 
 
-def list_posts(tag=None, keyword=None, problem_id=None, limit=60):
+def list_posts(tag=None, keyword=None, problem_id=None, sort="hot", limit=60):
+    """列出帖子。sort="hot" 按点赞数排序（同赞数再按时间），"new" 按发布时间。"""
     kw = (keyword or "").strip()
     pid = (problem_id or "").strip()
     with session_scope() as s:
@@ -90,7 +91,11 @@ def list_posts(tag=None, keyword=None, problem_id=None, limit=60):
             like = "%" + kw + "%"
             q = q.where(or_(Post.title.ilike(like), Post.body.ilike(like),
                             Post.username.ilike(like)))
-        q = q.order_by(Post.created_at.desc()).limit(limit)
+        if sort == "new":
+            q = q.order_by(Post.created_at.desc())
+        else:   # 默认按热度：点赞优先，赞数相同再看谁新
+            q = q.order_by(Post.likes.desc(), Post.created_at.desc())
+        q = q.limit(limit)
         return [_post_brief(p) for p in s.scalars(q)]
 
 

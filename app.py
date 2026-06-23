@@ -545,8 +545,9 @@ class ReplyReq(BaseModel):
 
 
 @app.get("/api/community/posts")
-def community_posts(tag: str = "", q: str = "", problem_id: str = ""):
-    return {"posts": community.list_posts(tag or None, q or None, problem_id or None)}
+def community_posts(tag: str = "", q: str = "", problem_id: str = "", sort: str = "hot"):
+    return {"posts": community.list_posts(tag or None, q or None, problem_id or None,
+                                          sort=sort if sort in ("hot", "new") else "hot")}
 
 
 @app.get("/api/community/posts/{pid}")

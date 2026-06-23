@@ -39,6 +39,7 @@ function resetAnalysisState() {
   lastStrategies = null;
   const av = $("#ana-viz"); if (av) { av.classList.add("hidden"); av.innerHTML = ""; }
   const ps = $("#prob-solutions"); if (ps) { ps.classList.add("hidden"); ps.innerHTML = ""; }
+  resetAllAgents();    // 换题/新题：智能体团队运行状态归零，杜绝残留上一题的「完成 ✓」
   resetSolveState();   // 换题/新题：判题结果、导师审阅、导师对话也一并清空，杜绝残留上一题
 }
 
@@ -101,6 +102,13 @@ function setAgent(id, state) {
 }
 let teamRunIds = [];
 function resetAgents(ids) { teamRunIds = ids.slice(); ids.forEach(id => setAgent(id, "idle")); }
+// 换题/新题：把整支智能体团队（卡片状态 + 迷你状态点 + 进度条）全部归零，
+// 不让上一题跑出来的「工作中 / 完成 ✓」残留误导当前题。
+function resetAllAgents() {
+  teamRunIds = [];
+  AGENTS.forEach(a => setAgent(a.id, "idle"));
+  const bar = $("#team-prog"); if (bar) bar.style.width = "0%";
+}
 function updateTeamProgress() {
   const ids = teamRunIds.length ? teamRunIds : AGENTS.map(a => a.id);
   let done = 0, active = 0;
@@ -950,9 +958,17 @@ function pasteNewProblem() {       // 抽屉里「粘贴自己的题目」：切
 }
 
 async function loadProblem(pid) {
-  if (!pid) return;
-  const p = await fetch("/api/problems/" + pid).then(r => r.json());
-  if (!p || p.error) return;
+  if (!pid) return false;
+  let p;
+  try { p = await fetch("/api/problems/" + encodeURIComponent(pid)).then(r => r.json()); }
+  catch (e) { p = null; }
+  if (!p || p.error) {
+    // 关联的题目可能已删除，或是其他用户的私有自建题（U 开头），当前账号无权载入
+    toast(String(pid).startsWith("U")
+      ? "无法打开：这是作者的私有题目，仅其本人可见"
+      : "该题目暂时无法载入（可能已被移除）");
+    return false;
+  }
   let text = p.description;
   if (p.sample_input) text += `\n\n样例输入：\n${p.sample_input}\n\n样例输出：\n${p.sample_output}`;
   setProblemText(text);          // 全文展示（只读），同时写入数据源
@@ -964,6 +980,7 @@ async function loadProblem(pid) {
   if ($("#io-history").classList.contains("active")) loadSubmissions();
   loadProblemSolutions(pid);     // 聚合这道题的社群题解
   toast("已载入：" + p.title);
+  return true;
 }
 
 // 换题时同步编辑器：有该题历史提交则载入最近一次代码，否则重置为空白模板
@@ -978,31 +995,47 @@ async function loadProblemCode(pid) {
 
 /* ---------------- 题解聚合：本题的社群帖子 ---------------- */
 function tagClsOf(t) { return ({ "求助": "ask", "题解": "solu", "讨论": "disc", "反馈": "fb" })[t] || "disc"; }
-// 把「这道题」的社群题解/讨论聚合到题目下方，一键跳到社群看
+// 把「这道题」的社群题解/讨论聚合到题目下方：始终给出「写题解」入口，
+// 有帖子就按热度列出（点赞优先），没有就引导发第一篇。
 async function loadProblemSolutions(pid) {
   const box = $("#prob-solutions");
   if (!box) return;
   if (!pid) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+  let posts = [];
   try {
-    const r = await fetch("/api/community/posts?problem_id=" + encodeURIComponent(pid)).then(r => r.json());
-    const posts = r.posts || [];
-    if (!posts.length) { box.classList.add("hidden"); box.innerHTML = ""; return; }
-    box.classList.remove("hidden");
-    box.innerHTML = `<div class="ps-head">💬 社群里这道题的讨论 · ${posts.length} 篇</div>` +
-      `<div class="ps-list">` + posts.slice(0, 6).map(p =>
+    const r = await fetch("/api/community/posts?problem_id=" + encodeURIComponent(pid) + "&sort=hot")
+      .then(r => r.json());
+    posts = r.posts || [];
+  } catch (e) { posts = []; }
+  box.classList.remove("hidden");
+  const head = `<div class="ps-head">
+      <span>💬 社群里这道题的讨论${posts.length ? " · " + posts.length + " 篇" : ""}</span>
+      <button type="button" class="ps-write" id="ps-write-btn">✎ 写本题题解</button>
+    </div>`;
+  const list = posts.length
+    ? `<div class="ps-list">` + posts.slice(0, 6).map(p =>
         `<button type="button" class="ps-item" data-id="${p.id}">
            <span class="cm-tag-badge ${tagClsOf(p.tag)}">${esc(p.tag)}</span>
            <span class="ps-title">${esc(p.title)}</span>
            <span class="ps-meta">👍${p.likes} · 💬${p.reply_count}</span>
-         </button>`).join("") + `</div>`;
-    box.querySelectorAll(".ps-item").forEach(b => b.onclick = () => openCommunityPost(Number(b.dataset.id)));
-  } catch (e) { box.classList.add("hidden"); box.innerHTML = ""; }
+         </button>`).join("") + `</div>`
+    : `<div class="ps-empty">还没有人讨论这道题，来发第一篇题解吧～</div>`;
+  box.innerHTML = head + list;
+  box.querySelector("#ps-write-btn").onclick = () => openCommunityCompose("题解");
+  box.querySelectorAll(".ps-item").forEach(b => b.onclick = () => openCommunityPost(Number(b.dataset.id)));
 }
 // 切到「社群」标签并打开指定帖子
 function openCommunityPost(id) {
   const tab = document.querySelector('.tab[data-view="community"]');
   if (tab) tab.click();
   if (window.cmOpenPost) window.cmOpenPost(id);
+}
+// 切到「社群」并打开发帖抽屉（当前题目会被自动关联）
+function openCommunityCompose(tag) {
+  if (!currentUser) { openAuth("login", "登录后即可发表题解，并参与社群讨论"); return; }
+  const t = document.querySelector('.tab[data-view="community"]');
+  if (t) t.click();
+  if (window.cmNewPost) window.cmNewPost(tag);
 }
 // 供 community.js 复用：当前正在做的题（发帖时默认关联） / 从社群跳回工作台载题
 window.cpCurrentProblem = () => currentProblemId
@@ -1015,7 +1048,26 @@ window.cpLoadProblem = (pid) => {
 
 /* ---------------- 每日报告（Pro） ---------------- */
 let lastReport = null;
+// 报告区回到初始态，并按当前登录/会员状态给出正确提示——
+// 避免「已登录却仍显示请先登录」这类残留的矛盾状态（换页 / 登录态变化时调用）
+function resetReportArea() {
+  lastReport = null;
+  const body = $("#report-body");
+  if (body) {
+    body.innerHTML = !currentUser
+      ? '<span class="empty-hint">登录后即可生成今日 AI 学习日报（Pro 功能）</span>'
+      : (!currentBilling.is_pro
+          ? '<span class="empty-hint">每日 AI 学习日报是 Pro 功能 — 看广告免费得算力点或充值即可解锁</span>'
+          : '<span class="empty-hint">点「生成今日报告」，AI 全方位分析你今天的学习并可导出 PDF（Pro）</span>');
+  }
+  const dl = $("#btn-dl-report"), sh = $("#btn-share-report");
+  if (dl) dl.classList.add("hidden");
+  if (sh) sh.classList.add("hidden");
+}
 async function genReport() {
+  // 先按登录态做前置引导，避免请求落到后端再回弹「请先登录」造成观感上的矛盾
+  if (!currentUser) { openAuth("login", "登录后即可生成今日 AI 学习日报（Pro 功能）"); return; }
+  if (!currentBilling.is_pro) { promptUnlock("每日学习报告"); return; }
   const btn = $("#btn-gen-report"); btn.disabled = true; btn.textContent = "生成中…";
   try {
     const r = await fetch("/api/daily-report");
@@ -1062,6 +1114,49 @@ function wrapText(ctx, text, x, y, maxW, lh, maxLines) {
   }
   if (line.trim()) { ctx.fillText(line, x, y); lines++; }
   return lines;
+}
+
+// 每日随机鼓励：以日期为种子，做到「当天固定、跨天变化」，而非每次绘制都跳
+const ENCOURAGE_LINES = [
+  "你今天写下的每一行，都在悄悄拉开和昨天的差距。",
+  "难的不是题，是坚持坐下来的那一刻——你已经做到了。",
+  "卡住很正常，卡住之后还在想，才是真正的成长。",
+  "不必和别人比，今天的你比昨天多懂了一点，就够了。",
+  "高手也曾对着同一道题发呆，区别只是他们没走开。",
+  "进度条不会说谎，你正在一点一点地变强。",
+  "把每道题当成对手，赢一次，自信就多一分。",
+  "今天的认真，是未来某场比赛里那一瞬间的从容。",
+  "慢一点没关系，方向对了，迟早会到。",
+  "你不是不擅长算法，你只是还在路上。",
+  "代码会报错，但努力从不会白费。",
+  "再坚持一题，就一题——很多突破都发生在这之后。",
+];
+function dailyEncourage(dateStr) {
+  const key = dateStr || new Date().toISOString().slice(0, 10);
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return ENCOURAGE_LINES[h % ENCOURAGE_LINES.length];
+}
+// 在 canvas 上绘制二维码（本地 qrcode-generator，离线、不污染画布，可正常导出/复制）
+function drawQRCode(ctx, text, x, y, box, opts) {
+  opts = opts || {};
+  const dark = opts.dark || "#2E2A22", lightBg = opts.light || "#FFFFFF",
+        quiet = opts.quiet != null ? opts.quiet : 8;
+  if (typeof qrcode === "undefined") return false;
+  let qr;
+  try { qr = qrcode(0, "M"); qr.addData(String(text)); qr.make(); }
+  catch (e) { return false; }
+  const count = qr.getModuleCount();
+  ctx.fillStyle = lightBg; ctx.fillRect(x, y, box, box);
+  const cell = (box - 2 * quiet) / count;
+  ctx.fillStyle = dark;
+  for (let r = 0; r < count; r++) {
+    for (let c = 0; c < count; c++) {
+      if (qr.isDark(r, c))
+        ctx.fillRect(x + quiet + c * cell, y + quiet + r * cell, Math.ceil(cell), Math.ceil(cell));
+    }
+  }
+  return true;
 }
 
 async function drawShareCard(rep) {
@@ -1119,18 +1214,38 @@ async function drawShareCard(rep) {
   });
   ctx.textAlign = "left";
 
-  // AI 点评
-  ctx.fillStyle = inkMute; ctx.font = "700 13px " + MONO; ctx.fillText("AI 导师寄语", M, 452);
+  // AI 点评（收敛到 5 行，给底部「每日鼓励 + 二维码」让出版面）
+  ctx.fillStyle = inkMute; ctx.font = "700 13px " + MONO; ctx.fillText("AI 导师寄语", M, 448);
   ctx.fillStyle = ink; ctx.font = "400 17px " + SANS;
   const narr = String(rep.narrative || "").replace(/[#*`>_\-]/g, "").replace(/\n+/g, " ").trim();
-  wrapText(ctx, narr, M, 484, W - 2 * M, 30, 9);
+  wrapText(ctx, narr, M, 478, W - 2 * M, 28, 5);
+
+  // 每日鼓励 + 二维码（同一条暖色 band，左文右码）
+  const BY = 636, BH = 176, qrBox = 124;
+  const qrX = W - M - 24 - qrBox, qrY = BY + 26;
+  roundRect(ctx, M, BY, W - 2 * M, BH, 18); ctx.fillStyle = tint; ctx.fill();
+  ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.stroke();
+  // 左：每日鼓励
+  ctx.textAlign = "left";
+  ctx.fillStyle = gold; ctx.font = "700 13px " + MONO; ctx.fillText("🌱 今日鼓励", M + 26, BY + 40);
+  ctx.fillStyle = ink; ctx.font = "500 19px " + SERIF;
+  wrapText(ctx, dailyEncourage(rep.date), M + 26, BY + 78, qrX - (M + 26) - 24, 30, 3);
+  // 右：二维码（指向当前站点，扫码即体验）
+  const site = (window.location && window.location.origin) || "https://cp-tutor-agent.onrender.com";
+  const okQR = drawQRCode(ctx, site, qrX, qrY, qrBox, { dark: ink, light: paper, quiet: 8 });
+  ctx.textAlign = "center";
+  if (okQR) {
+    ctx.fillStyle = inkDim; ctx.font = "600 13px " + SANS;
+    ctx.fillText("扫码开练 →", qrX + qrBox / 2, qrY + qrBox + 22);
+  }
+  ctx.textAlign = "left";
 
   // 底部品牌条
-  roundRect(ctx, M, H - 132, W - 2 * M, 56, 14); ctx.fillStyle = accent; ctx.fill();
+  roundRect(ctx, M, H - 92, W - 2 * M, 52, 14); ctx.fillStyle = accent; ctx.fill();
   ctx.fillStyle = paper; ctx.font = "600 16px " + SANS; ctx.textAlign = "left";
-  ctx.fillText("🎓 和 ARENA 一起刷题，每天进步一点点", M + 22, H - 98);
-  ctx.fillStyle = inkMute; ctx.font = "400 13px " + MONO; ctx.textAlign = "center";
-  ctx.fillText("cp-tutor-agent · LangGraph 多智能体辅导", W / 2, H - 52);
+  ctx.fillText("🎓 和 ARENA 一起刷题，每天进步一点点", M + 22, H - 60);
+  ctx.fillStyle = "rgba(251,247,239,0.72)"; ctx.font = "400 12px " + MONO; ctx.textAlign = "right";
+  ctx.fillText("cp-tutor-agent", W - M - 22, H - 60);
   ctx.textAlign = "left";
 }
 
@@ -1172,6 +1287,7 @@ async function downloadReport() {
 
 /* ---------------- 仪表盘 ---------------- */
 async function loadDashboard() {
+  resetReportArea();   // 进入仪表盘先归位报告区，清掉上一次（可能是未登录时）的残留提示
   const s = await fetch("/api/stats").then(r => r.json());
   $("#st-total").textContent = s.total;
   $("#st-solved").textContent = s.solved;
@@ -1492,10 +1608,19 @@ async function loadMe() {
     currentUser = r.user; currentProfile = r.profile; currentBilling = r.billing || currentBilling;
     window.currentUser = currentUser;   // 暴露给 community.js（let 绑定不会挂到 window 上）
     renderAuthArea(); renderAdaptiveNote();
+    if (currentUser) startIdleTimer(); else stopIdleTimer();   // 登录态决定闲置自动退出计时
   } catch (e) {}
 }
 // LLM 操作会在服务端按次扣算力点；操作后即时刷新顶栏，免得用户以为没扣还要手动刷新页面
 function refreshBilling() { if (currentUser) loadMe(); }
+// 登录态变化（登录 / 注册 / 退出 / 自动退出）后统一刷新所有与身份相关的视图，
+// 杜绝「顶栏已登录、但某个区域还停留在未登录文案」的矛盾状态。
+function onAuthChanged() {
+  resetReportArea();
+  if ($("#view-dashboard").classList.contains("active")) loadDashboard();
+  if ($("#view-community").classList.contains("active") && window.loadCommunity) window.loadCommunity();
+  loadProblemList();   // AC 标记与登录用户绑定，登录态变了要重拉题单
+}
 function renderAuthArea() {
   const a = $("#auth-area");
   if (currentUser) {
@@ -1550,14 +1675,44 @@ async function submitAuth() {
     closeAuth(); $("#auth-password").value = "";
     await loadMe();
     toast(authMode === "login" ? "已登录" : "注册成功，已登录");
-    if ($("#view-dashboard").classList.contains("active")) loadDashboard();
+    onAuthChanged();
   } catch (e) { $("#auth-err").textContent = "网络错误"; }
 }
 async function logout() {
   await fetch("/api/logout", { method: "POST" });
   await loadMe(); toast("已退出");
-  if ($("#view-dashboard").classList.contains("active")) loadDashboard();
+  onAuthChanged();
 }
+
+/* ---------------- 闲置自动退出（10 分钟无操作） ---------------- */
+const IDLE_LIMIT_MS = 10 * 60 * 1000;
+let idleTimer = null;
+function startIdleTimer() {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(autoLogout, IDLE_LIMIT_MS);
+}
+function stopIdleTimer() { clearTimeout(idleTimer); idleTimer = null; }
+// 有操作就续命；仅在已登录时计时，避免给游客无谓地起定时器
+function bumpIdleTimer() { if (currentUser) startIdleTimer(); }
+async function autoLogout() {
+  if (!currentUser) return;
+  try { await fetch("/api/logout", { method: "POST" }); } catch (e) {}
+  await loadMe();
+  onAuthChanged();
+  toast("⏱️ 已闲置 10 分钟，为保护账号已自动退出登录");
+}
+// 监听常见交互续命；用捕获 + passive，节流到每秒最多重置一次，避免高频事件压垮
+(function bindIdleActivity() {
+  let last = 0;
+  const onActivity = () => {
+    const now = Date.now();
+    if (now - last < 1000) return;
+    last = now;
+    bumpIdleTimer();
+  };
+  ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"].forEach(
+    (ev) => window.addEventListener(ev, onActivity, { capture: true, passive: true }));
+})();
 async function recharge(yuan) {
   try {
     const r = await fetch("/api/recharge", {

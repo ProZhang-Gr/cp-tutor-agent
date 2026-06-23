@@ -20,6 +20,7 @@
   };
   let cmTag = "";
   let cmKeyword = "";
+  let cmSort = "hot";   // 默认按点赞热度排序，可切「最新」
   let cmInited = false;
   let cmProblems = null;   // 题库 + 我的题目缓存，供发帖时关联
   let cmProbMap = {};      // display -> {id,title}
@@ -61,7 +62,8 @@
     list.innerHTML = '<div class="cm-empty">加载中…</div>';
     try {
       const url = "/api/community/posts?tag=" + encodeURIComponent(cmTag) +
-                  "&q=" + encodeURIComponent(cmKeyword);
+                  "&q=" + encodeURIComponent(cmKeyword) +
+                  "&sort=" + encodeURIComponent(cmSort);
       const r = await fetch(url).then((r) => r.json());
       renderList(r.posts || []);
     } catch (e) { list.innerHTML = '<div class="cm-empty">加载失败，请稍后再试</div>'; }
@@ -95,14 +97,15 @@
   function closeDrawer() { $c("#cm-overlay").classList.remove("open"); $c("#cm-drawer").classList.remove("open"); }
 
   /* ---------------- 发帖 ---------------- */
-  function openComposer() {
+  function openComposer(presetTag) {
     if (!loggedIn()) return needLogin("发帖");
+    const initTag = TAGS.indexOf(presetTag) >= 0 ? presetTag : "讨论";
     $c("#cm-drawer-body").innerHTML = `
       <div class="cm-compose">
         <h3 class="cm-drawer-title">✎ 发表新帖</h3>
         <div class="cm-field-label">选择板块</div>
         <div class="cm-compose-tags" id="cm-c-tags">
-          ${TAGS.map((t, i) => `<button type="button" class="cm-ctag ${TAG_CLS[t]}${i === 2 ? " active" : ""}" data-tag="${t}">${t}</button>`).join("")}
+          ${TAGS.map((t) => `<button type="button" class="cm-ctag ${TAG_CLS[t]}${t === initTag ? " active" : ""}" data-tag="${t}">${t}</button>`).join("")}
         </div>
         <div class="cm-field-label">标题</div>
         <input id="cm-c-title" class="cm-input" maxlength="80" placeholder="一句话说清问题，如「快排为什么会退化到 O(n²)」">
@@ -117,7 +120,7 @@
         </div>
         <div id="cm-c-err" class="cm-err"></div>
       </div>`;
-    let tag = "讨论";
+    let tag = initTag;
     const applyPH = (t) => {
       const ph = PH[t] || PH["讨论"];
       $c("#cm-c-title").placeholder = ph.t;
@@ -265,6 +268,12 @@
       cmTag = b.dataset.tag || ""; syncTagButtons(); loadList();
     }));
     $c("#cm-new-btn").onclick = openComposer;
+    const sortBox = $c("#cm-sort");
+    if (sortBox) sortBox.querySelectorAll(".cm-sort-btn").forEach((b) => (b.onclick = () => {
+      cmSort = b.dataset.sort || "hot";
+      sortBox.querySelectorAll(".cm-sort-btn").forEach((x) => x.classList.toggle("active", x === b));
+      loadList();
+    }));
     $c("#cm-drawer-close").onclick = closeDrawer;
     $c("#cm-overlay").onclick = closeDrawer;
     const search = $c("#cm-search");
@@ -284,7 +293,18 @@
   };
   // 供 app.js 从「题目剖析」一键跳到某帖详情
   window.cmOpenPost = function (id) {
-    if (!cmInited) { bind(); cmInited = true; }
+    if (!cmInited) { cmSyncSort(); bind(); cmInited = true; }
     openDetail(id);
   };
+  // 供 app.js 从题目页一键发本题题解（自动带上当前题目关联，默认「题解」板块）
+  window.cmNewPost = function (presetTag) {
+    if (!cmInited) { cmSyncSort(); bind(); cmInited = true; }
+    openComposer(presetTag);
+  };
+  // 让排序按钮的高亮与当前 cmSort 一致（首次进入或被外部入口唤起时）
+  function cmSyncSort() {
+    const box = $c("#cm-sort");
+    if (box) box.querySelectorAll(".cm-sort-btn").forEach((x) =>
+      x.classList.toggle("active", (x.dataset.sort || "hot") === cmSort));
+  }
 })();

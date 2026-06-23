@@ -309,6 +309,10 @@
           <button type="button" class="cm-tag" data-tag="反馈">反馈</button>
         </div>
         <div class="cm-toolbar-right">
+          <div class="cm-sort" id="cm-sort">
+            <button type="button" class="cm-sort-btn active" data-sort="hot">🔥 最热</button>
+            <button type="button" class="cm-sort-btn" data-sort="new">🕒 最新</button>
+          </div>
           <input id="cm-search" class="cm-search" type="search" placeholder="🔍 搜索标题 / 内容 / 作者" autocomplete="off">
           <button id="cm-new-btn" class="btn btn-primary cm-new-btn">✎ 发帖</button>
         </div>
@@ -450,6 +454,9 @@
      避免 loader.js 劫持 UMD 注册导致 marked/Chart 不挂到 window -->
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- 二维码生成（本地自带，离线可用；须在 Monaco 的 AMD loader 之前加载，
+     否则其 UMD 包装会走 define() 分支而不挂到 window.qrcode） -->
+<script src="/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 <script src="/app.js"></script>
 <script src="/viz.js"></script>
