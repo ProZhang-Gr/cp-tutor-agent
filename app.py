@@ -127,6 +127,7 @@ class ChatReq(BaseModel):
     history: list = []
     code: str = ""        # 学生编辑器里的完整代码（导师可实时看到）
     selection: str = ""   # 学生框选、想重点询问的片段
+    hints: str = ""       # 苏格拉底导师已给过的分层提示（供对话保持连贯）
 
 
 class RunReq(BaseModel):
@@ -394,6 +395,13 @@ def chat(req: ChatReq, request: Request, arena_session: str = Cookie(default=Non
                 msgs.append(("system", "因材施教：" + directive))
             if req.problem:
                 msgs.append(("system", "当前题目：\n" + req.problem))
+            if req.hints.strip():
+                # 你（同一位导师）刚在「分层提示」里给过这些点拨，对话要与之连贯：
+                # 学生很可能在追问你提示里抛出的问题，别表现得不知道自己说过什么、别重复发问。
+                msgs.append(("system", "你刚刚以苏格拉底方式给这位学生的分层提示如下（按层递进）。"
+                                       "学生现在的提问很可能正是顺着这些提示来的——请与它们保持连贯，"
+                                       "顺势接着引导，不要重复你已经问过的问题，也不要表现得不知道自己提过它们：\n"
+                                       + req.hints[:2500]))
             if req.code.strip():
                 msgs.append(("system", "学生当前编辑器里的完整代码（请结合它来回答，"
                                        "可直接引用具体行/变量）：\n```python\n"

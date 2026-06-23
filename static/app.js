@@ -592,6 +592,7 @@ async function sendChat() {
     await sseStream("/api/chat", {
       problem: $("#problem-input").value.trim(), question: q, history: chatHistory,
       code: editor ? editor.getValue() : "", selection: sel,
+      hints: hintHistory.join("\n---\n"),   // 把苏格拉底分层提示带进对话上下文，保持连贯
     }, (ev) => {
       if (ev.event === "token") { acc += ev.text; aMsg.innerHTML = marked.parse(acc);
         $("#chat-log").scrollTop = $("#chat-log").scrollHeight; }
