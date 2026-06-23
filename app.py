@@ -76,18 +76,38 @@ def _ip(request):
     return request.client.host if request.client else "?"
 
 
+def _audit_meta(request):
+    """收集供监控/取证的请求指纹：真实 socket 来源 + 原始 XFF 链 + UA。
+
+    _ip() 取的是 XFF 最左值（可被客户端伪造），仅用于尽力识别；这里额外记下
+    request.client.host（真正连到服务端的对端）与完整 XFF 链，便于事后核查。
+    """
+    peer = request.client.host if request.client else "?"
+    ua = (request.headers.get("user-agent") or "")[:100]
+    xff = request.headers.get("x-forwarded-for")
+    parts = ["peer=" + peer]
+    if xff:
+        parts.append("xff=" + xff[:120])
+    if ua:
+        parts.append("ua=" + ua)
+    return " | ".join(parts)
+
+
 def _abuse_block(request, uid, endpoint):
     """限流/配额守门：放行返回 None，拦截返回 429 响应。
 
-    Pro（credits>0）不受每日配额限制，但每次调用消耗 1 算力点；
-    余额耗尽或普通用户则走每日配额。限流与审计对所有人生效。
+    顺序刻意是「先判限流/全站上限/配额，通过后再扣 Pro 算力点」——
+    避免出现「被限流拦下却已白扣一点」。Pro（credits>0）不受每日配额，
+    但每次成功调用消耗 1 算力点；限流、全站上限与审计对所有人生效。
     """
     ip = _ip(request)
-    if billing.get_status(uid)["is_pro"] and billing.spend(uid, 1) is not None:
-        ok, msg = guard.check_and_log(ip, uid, endpoint, is_pro=True)
-    else:
-        ok, msg = guard.check_and_log(ip, uid, endpoint, is_pro=False)
-    return None if ok else JSONResponse({"error": msg}, status_code=429)
+    is_pro = billing.get_status(uid)["is_pro"]
+    ok, msg = guard.check_and_log(ip, uid, endpoint, is_pro=is_pro, meta=_audit_meta(request))
+    if not ok:
+        return JSONResponse({"error": msg}, status_code=429)
+    if is_pro:
+        billing.spend(uid, 1)   # 通过后再扣点
+    return None
 
 
 def _require_pro(uid):
@@ -174,7 +194,10 @@ def _set_login(resp, uid):
 
 
 @app.post("/api/register")
-def register(req: AuthReq, resp: Response):
+def register(req: AuthReq, request: Request, resp: Response):
+    ok, msg = guard.rate_limit_only(_ip(request))   # 限流防注册轰炸
+    if not ok:
+        return JSONResponse({"error": msg}, status_code=429)
     err = auth.validate_credentials(req.username, req.password)
     if err:
         return JSONResponse({"error": err}, status_code=400)
@@ -186,7 +209,10 @@ def register(req: AuthReq, resp: Response):
 
 
 @app.post("/api/login")
-def login(req: AuthReq, resp: Response):
+def login(req: AuthReq, request: Request, resp: Response):
+    ok, msg = guard.rate_limit_only(_ip(request))   # 限流防密码暴力破解
+    if not ok:
+        return JSONResponse({"error": msg}, status_code=429)
     user = auth.authenticate(req.username, req.password)
     if not user:
         return JSONResponse({"error": "用户名或密码错误"}, status_code=401)
@@ -222,7 +248,14 @@ def recharge(req: RechargeReq, arena_session: str = Cookie(default=None)):
     uid = _uid(arena_session)
     if uid is None:
         return JSONResponse({"error": "请先登录再充值"}, status_code=401)
-    bal = billing.recharge(uid, req.yuan)
+    # 模拟充值，但仍限额：单次 1~1000 元，防止自助刷出天量算力点再去打爆 LLM 花费
+    try:
+        yuan = int(req.yuan)
+    except (TypeError, ValueError):
+        yuan = 0
+    if yuan < 1 or yuan > 1000:
+        return JSONResponse({"error": "充值金额需在 1~1000 之间"}, status_code=400)
+    bal = billing.recharge(uid, yuan)
     return {"credits": bal, "is_pro": (bal or 0) > 0}
 
 
@@ -483,7 +516,15 @@ def review_code(req: ReviewCodeReq, request: Request, arena_session: str = Cooki
 
 # ------------------------- 直接运行代码（自定义输入） -------------------------
 @app.post("/api/run")
-def run_code(req: RunReq):
+def run_code(req: RunReq, request: Request):
+    # 代码执行是高危端点：即便游客也必须限流 + 限长，防止被当作免费算力 / 攻击跳板滥用
+    ok, msg = guard.rate_limit_only(_ip(request))
+    if not ok:
+        return JSONResponse({"error": msg}, status_code=429)
+    if len(req.code) > settings.MAX_CODE_CHARS:
+        return JSONResponse({"error": "代码过长"}, status_code=400)
+    if len(req.stdin) > settings.MAX_CODE_CHARS:
+        return JSONResponse({"error": "输入过长"}, status_code=400)
     return sandbox.run_python(req.code, req.stdin)
 
 

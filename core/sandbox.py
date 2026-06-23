@@ -8,22 +8,105 @@
 并未做系统调用级别的硬隔离。生产环境应换用容器/seccomp。
 """
 import os
+import shutil
+import signal
 import subprocess
 import sys
 import tempfile
 
 from config import settings
 
+try:
+    import resource   # POSIX 专有：用于设置子进程资源上限
+except ImportError:    # Windows 本地开发无此模块
+    resource = None
+
+_POSIX = os.name == "posix"
+
 # 子进程仅继承这些环境变量；密钥（如 DEEPSEEK_API_KEY）一律不传入，
 # 防止公网部署时访客通过提交代码读取 os.environ 窃取密钥。
 _SAFE_ENV_KEYS = ("PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "HOME",
                   "LANG", "LC_ALL", "LC_CTYPE")
 
+# 子进程资源上限（仅 POSIX 生效，挡内存炸弹 / CPU 死循环 / 磁盘填充）
+_MEM_LIMIT_BYTES = 320 * 1024 * 1024    # 地址空间上限：挡 'a'*10**9 这类内存炸弹
+_FSIZE_LIMIT_BYTES = 16 * 1024 * 1024   # 单文件写入上限：挡把磁盘写满
 
-def _safe_env():
+# 注入到子进程的安全审计钩子（随脚本目录自动 import sitecustomize 生效）：
+# 禁网络、禁创建子进程、禁读写应用目录（口令哈希 / 测试数据 / 源码）。
+# 这是「教学级」纵深防护之一，非系统级硬隔离；硬隔离仍需容器 / seccomp。
+_SITECUSTOMIZE_TPL = '''# -*- coding: utf-8 -*-
+# 沙箱安全钩子（系统注入，非用户代码）。请勿依赖此文件。
+import os, sys
+_BASE = {base!r}
+_APP = {app!r}
+_NET = ("socket.connect", "socket.bind", "socket.getaddrinfo",
+        "socket.gethostbyname", "socket.gethostbyaddr", "urllib.Request",
+        "ftplib.connect", "smtplib.connect", "http.client.connect")
+_SPAWN = ("subprocess.Popen", "os.system", "os.exec", "os.posix_spawn",
+          "os.spawn", "os.startfile", "pty.spawn")
+def _hook(event, args):
+    if event in _NET:
+        raise PermissionError("sandbox: network access is disabled")
+    if event in _SPAWN:
+        raise PermissionError("sandbox: spawning processes is disabled")
+    if event == "open":
+        p = args[0] if args else None
+        if isinstance(p, str) and p:
+            try:
+                full = os.path.abspath(p)
+            except Exception:
+                return
+            # 允许访问沙箱临时目录与标准库；禁止触碰应用目录（口令哈希/测试数据/源码）
+            if full.startswith(_APP) and not full.startswith(_BASE):
+                raise PermissionError("sandbox: file access is restricted")
+sys.addaudithook(_hook)
+'''
+
+
+def _safe_env(pythonpath=None):
     env = {k: os.environ[k] for k in _SAFE_ENV_KEYS if k in os.environ}
     env["PYTHONIOENCODING"] = "utf-8"
+    if pythonpath:
+        # 让脚本目录里的 sitecustomize.py 在解释器启动时被自动导入
+        env["PYTHONPATH"] = pythonpath
     return env
+
+
+def _limit_resources(cpu_seconds):
+    """返回一个 preexec_fn：在子进程 exec 前设资源上限（仅 POSIX）。"""
+    def _pre():
+        if not resource:
+            return
+        for res, lim in (
+            (getattr(resource, "RLIMIT_AS", None), _MEM_LIMIT_BYTES),
+            (getattr(resource, "RLIMIT_CPU", None), cpu_seconds),
+            (getattr(resource, "RLIMIT_FSIZE", None), _FSIZE_LIMIT_BYTES),
+        ):
+            if res is not None:
+                try:
+                    resource.setrlimit(res, (lim, lim))
+                except Exception:
+                    pass
+    return _pre
+
+
+def _kill_tree(proc):
+    """超时/异常时整组击杀，连带清理子进程 fork 出来的子孙（挡 fork 炸弹）。"""
+    try:
+        if _POSIX:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        else:
+            proc.kill()
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+    try:
+        proc.communicate(timeout=2)
+    except Exception:
+        pass
 
 
 # 判题状态
@@ -63,44 +146,57 @@ def run_python(code, stdin_data="", timeout=None):
     """
     timeout = timeout or settings.SANDBOX_TIMEOUT
     base = tempfile.mkdtemp(prefix="run_")
-    src_dir = os.path.join(base, ".src")
-    work_dir = os.path.join(base, "work")
-    os.makedirs(src_dir, exist_ok=True)
-    os.makedirs(work_dir, exist_ok=True)
-    src = os.path.join(src_dir, "main.py")
-    with open(src, "w", encoding="utf-8") as f:
-        f.write(code)
-
-    # 先做一次语法编译检查，区分 CE 与 RE（只回报行号，不带路径）
     try:
-        compile(code, src, "exec")
-    except SyntaxError as e:
-        return {"status": CE, "stdout": "", "stderr": "语法错误: %s (第 %s 行)" % (e.msg, e.lineno),
-                "time_ms": 0}
+        src_dir = os.path.join(base, ".src")
+        work_dir = os.path.join(base, "work")
+        os.makedirs(src_dir, exist_ok=True)
+        os.makedirs(work_dir, exist_ok=True)
+        src = os.path.join(src_dir, "main.py")
+        with open(src, "w", encoding="utf-8") as f:
+            f.write(code)
+        # 注入安全审计钩子：放进脚本目录，解释器启动时自动 import sitecustomize
+        with open(os.path.join(src_dir, "sitecustomize.py"), "w", encoding="utf-8") as f:
+            f.write(_SITECUSTOMIZE_TPL.format(
+                base=os.path.abspath(base), app=os.path.abspath(settings.ROOT)))
 
-    try:
-        proc = subprocess.run(
-            [sys.executable, src],
-            input=stdin_data,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=timeout,
-            cwd=work_dir,
-            env=_safe_env(),
+        # 先做一次语法编译检查，区分 CE 与 RE（只回报行号，不带路径）
+        try:
+            compile(code, src, "exec")
+        except SyntaxError as e:
+            return {"status": CE, "stdout": "", "stderr": "语法错误: %s (第 %s 行)" % (e.msg, e.lineno),
+                    "time_ms": 0}
+
+        popen_kwargs = dict(
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding="utf-8", cwd=work_dir, env=_safe_env(pythonpath=src_dir),
         )
-    except subprocess.TimeoutExpired:
-        return {"status": TLE, "stdout": "", "stderr": "超过时间限制 %ss" % timeout,
-                "time_ms": int(timeout * 1000)}
-    except Exception as e:
-        return {"status": RE, "stdout": "", "stderr": str(e), "time_ms": 0}
+        if _POSIX:
+            # 独立进程组（超时整组击杀）+ 资源上限（内存/CPU/文件大小）
+            popen_kwargs["start_new_session"] = True
+            popen_kwargs["preexec_fn"] = _limit_resources(int(timeout) + 1)
 
-    if proc.returncode != 0:
-        return {"status": RE, "stdout": proc.stdout or "",
-                "stderr": _clean_trace((proc.stderr or "").strip(), src, src_dir, base)[-1500:],
-                "time_ms": 0}
-    return {"status": "OK", "stdout": proc.stdout or "", "stderr": proc.stderr or "",
-            "time_ms": 0}
+        try:
+            proc = subprocess.Popen([sys.executable, src], **popen_kwargs)
+        except Exception as e:
+            return {"status": RE, "stdout": "", "stderr": str(e), "time_ms": 0}
+
+        try:
+            out, err = proc.communicate(input=stdin_data, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            _kill_tree(proc)
+            return {"status": TLE, "stdout": "", "stderr": "超过时间限制 %ss" % timeout,
+                    "time_ms": int(timeout * 1000)}
+        except Exception as e:
+            _kill_tree(proc)
+            return {"status": RE, "stdout": "", "stderr": str(e), "time_ms": 0}
+
+        if proc.returncode != 0:
+            return {"status": RE, "stdout": out or "",
+                    "stderr": _clean_trace((err or "").strip(), src, src_dir, base)[-1500:],
+                    "time_ms": 0}
+        return {"status": "OK", "stdout": out or "", "stderr": err or "", "time_ms": 0}
+    finally:
+        shutil.rmtree(base, ignore_errors=True)   # 清理临时目录，避免磁盘泄漏堆积
 
 
 def judge(code, test_cases, timeout=None):

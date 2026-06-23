@@ -27,10 +27,17 @@ def _trunc(s, n=1200):
 
 
 def load_real_tests(problem_id):
-    """读取题目的官方真实测试数据；没有则返回 None。"""
+    """读取题目的官方真实测试数据；没有则返回 None。
+
+    problem_id 来自客户端，直接拼路径会有目录穿越风险（如 ../../xxx），
+    故解析后强制校验最终路径仍落在 TESTS_DIR 内，越界一律拒绝。
+    """
     if not problem_id:
         return None
-    path = os.path.join(settings.TESTS_DIR, str(problem_id) + ".json")
+    tests_dir = os.path.abspath(settings.TESTS_DIR)
+    path = os.path.abspath(os.path.join(tests_dir, str(problem_id) + ".json"))
+    if os.path.commonpath([tests_dir, path]) != tests_dir:
+        return None   # 目录穿越尝试，拒绝
     if not os.path.exists(path):
         return None
     try:
