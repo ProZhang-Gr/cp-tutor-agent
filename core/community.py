@@ -8,7 +8,7 @@
 """
 import time
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from core.db import session_scope
 from core.models import Post, PostLike, Reply
@@ -73,14 +73,23 @@ def _post_brief(p):
         "id": p.id, "username": p.username, "tag": p.tag, "title": p.title,
         "snippet": _snippet(p.body), "likes": p.likes, "reply_count": p.reply_count,
         "created_at": p.created_at,
+        "problem_id": p.problem_id, "problem_title": p.problem_title,
     }
 
 
-def list_posts(tag=None, limit=60):
+def list_posts(tag=None, keyword=None, problem_id=None, limit=60):
+    kw = (keyword or "").strip()
+    pid = (problem_id or "").strip()
     with session_scope() as s:
         q = select(Post)
         if tag:
             q = q.where(Post.tag == tag)
+        if pid:
+            q = q.where(Post.problem_id == pid)
+        if kw:
+            like = "%" + kw + "%"
+            q = q.where(or_(Post.title.ilike(like), Post.body.ilike(like),
+                            Post.username.ilike(like)))
         q = q.order_by(Post.created_at.desc()).limit(limit)
         return [_post_brief(p) for p in s.scalars(q)]
 
@@ -100,15 +109,18 @@ def get_post(post_id, user_id=None):
             "id": p.id, "username": p.username, "tag": p.tag, "title": p.title,
             "body": p.body, "likes": p.likes, "reply_count": p.reply_count,
             "created_at": p.created_at, "liked": liked,
+            "problem_id": p.problem_id, "problem_title": p.problem_title,
             "replies": [{
                 "id": r.id, "username": r.username, "body": r.body, "created_at": r.created_at,
             } for r in replies],
         }
 
 
-def create_post(user_id, username, tag, title, body):
+def create_post(user_id, username, tag, title, body, problem_id=None, problem_title=None):
     title = (title or "").strip()
     body = (body or "").strip()
+    pid = (problem_id or "").strip()[:40] or None
+    ptitle = (problem_title or "").strip()[:200] or None
     if tag not in TAGS:
         return None, "请选择正确的板块标签"
     if not title:
@@ -124,7 +136,8 @@ def create_post(user_id, username, tag, title, body):
         return None, reason
     with session_scope() as s:
         p = Post(user_id=user_id, username=username, tag=tag, title=title,
-                 body=body, likes=0, reply_count=0, created_at=time.time())
+                 body=body, problem_id=pid, problem_title=ptitle,
+                 likes=0, reply_count=0, created_at=time.time())
         s.add(p)
         s.flush()
         return _post_brief(p), None

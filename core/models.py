@@ -81,6 +81,9 @@ class Post(Base):
     tag: Mapped[str] = mapped_column(String(20), index=True)   # 求助/题解/讨论/反馈
     title: Mapped[str] = mapped_column(String(120))
     body: Mapped[str] = mapped_column(Text)
+    # 可选关联题目：把帖子（尤其题解）挂到某道题上，便于在题目剖析处聚合
+    problem_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    problem_title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     likes: Mapped[int] = mapped_column(Integer, default=0)
     reply_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[float] = mapped_column(Float, default=time.time, index=True)

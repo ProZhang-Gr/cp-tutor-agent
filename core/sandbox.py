@@ -42,15 +42,36 @@ def _normalize(s):
     return "\n".join(lines)
 
 
+def _clean_trace(text, *paths):
+    """去掉报错里暴露的沙箱真实路径，统一显示为 main.py，避免泄露目录结构。"""
+    if not text:
+        return text
+    out = text
+    for p in paths:
+        if p:
+            out = out.replace(p, "main.py")
+    return out
+
+
 def run_python(code, stdin_data="", timeout=None):
-    """运行一段 Python 代码，返回执行详情字典。"""
+    """运行一段 Python 代码，返回执行详情字典。
+
+    目录布局刻意做了信息收敛：代码文件放在隐藏的 .src 子目录，运行时把 cwd
+    指向同级的空 work 目录——这样学生代码里 os.getcwd()/os.listdir() 看到的
+    是一个干净空目录，不暴露脚本名与沙箱命名前缀。报错里的真实路径也会被清洗。
+    （注：这是教学级隔离，非系统级硬隔离；硬隔离仍需容器/seccomp。）
+    """
     timeout = timeout or settings.SANDBOX_TIMEOUT
-    workdir = tempfile.mkdtemp(prefix="cp_sandbox_")
-    src = os.path.join(workdir, "solution.py")
+    base = tempfile.mkdtemp(prefix="run_")
+    src_dir = os.path.join(base, ".src")
+    work_dir = os.path.join(base, "work")
+    os.makedirs(src_dir, exist_ok=True)
+    os.makedirs(work_dir, exist_ok=True)
+    src = os.path.join(src_dir, "main.py")
     with open(src, "w", encoding="utf-8") as f:
         f.write(code)
 
-    # 先做一次语法编译检查，区分 CE 与 RE
+    # 先做一次语法编译检查，区分 CE 与 RE（只回报行号，不带路径）
     try:
         compile(code, src, "exec")
     except SyntaxError as e:
@@ -65,7 +86,7 @@ def run_python(code, stdin_data="", timeout=None):
             text=True,
             encoding="utf-8",
             timeout=timeout,
-            cwd=workdir,
+            cwd=work_dir,
             env=_safe_env(),
         )
     except subprocess.TimeoutExpired:
@@ -76,7 +97,8 @@ def run_python(code, stdin_data="", timeout=None):
 
     if proc.returncode != 0:
         return {"status": RE, "stdout": proc.stdout or "",
-                "stderr": (proc.stderr or "").strip()[-1500:], "time_ms": 0}
+                "stderr": _clean_trace((proc.stderr or "").strip(), src, src_dir, base)[-1500:],
+                "time_ms": 0}
     return {"status": "OK", "stdout": proc.stdout or "", "stderr": proc.stderr or "",
             "time_ms": 0}
 

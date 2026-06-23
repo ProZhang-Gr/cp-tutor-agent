@@ -41,3 +41,16 @@ def spend(uid, n=1):
             return None
         u.credits -= n
         return u.credits
+
+
+def grant(uid, points):
+    """直接发放算力点（看广告奖励等）。成功返回剩余，失败返回 None。"""
+    if uid is None:
+        return None
+    add = max(0, int(points))
+    with session_scope() as s:
+        u = s.get(User, uid)
+        if not u:
+            return None
+        u.credits += add
+        return u.credits

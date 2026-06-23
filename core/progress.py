@@ -94,7 +94,7 @@ def stats(user_id=None):
 
         recent = [{
             "problem_title": r.problem_title, "problem_type": r.problem_type,
-            "error_kind": r.error_kind, "score": r.score,
+            "error_kind": r.error_kind, "score": r.score, "ts": r.ts,
         } for r in rows[:10]]
 
     return {

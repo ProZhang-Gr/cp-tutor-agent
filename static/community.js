@@ -19,7 +19,25 @@
               b: "具体描述你想要的功能，或使用中遇到的问题…" },
   };
   let cmTag = "";
+  let cmKeyword = "";
   let cmInited = false;
+  let cmProblems = null;   // 题库 + 我的题目缓存，供发帖时关联
+  let cmProbMap = {};      // display -> {id,title}
+  async function ensureProblems() {
+    if (cmProblems) return cmProblems;
+    try {
+      const [bank, mine] = await Promise.all([
+        fetch("/api/problems").then((r) => r.json()).catch(() => []),
+        fetch("/api/my-problems").then((r) => r.json()).catch(() => []),
+      ]);
+      cmProblems = [].concat(bank || [], mine || []).map((p) => {
+        const id = String(p.id), title = p.title || "未命名", display = id + " · " + title;
+        cmProbMap[display] = { id, title };
+        return { id, title, display };
+      });
+    } catch (e) { cmProblems = []; }
+    return cmProblems;
+  }
 
   function fmtTime(ts) {
     const diff = Date.now() / 1000 - ts;
@@ -42,17 +60,25 @@
     const list = $c("#cm-list");
     list.innerHTML = '<div class="cm-empty">加载中…</div>';
     try {
-      const r = await fetch("/api/community/posts?tag=" + encodeURIComponent(cmTag)).then((r) => r.json());
+      const url = "/api/community/posts?tag=" + encodeURIComponent(cmTag) +
+                  "&q=" + encodeURIComponent(cmKeyword);
+      const r = await fetch(url).then((r) => r.json());
       renderList(r.posts || []);
     } catch (e) { list.innerHTML = '<div class="cm-empty">加载失败，请稍后再试</div>'; }
   }
 
   function renderList(posts) {
     const list = $c("#cm-list");
-    if (!posts.length) { list.innerHTML = '<div class="cm-empty">这个板块还没有帖子，来发第一帖吧～</div>'; return; }
+    if (!posts.length) {
+      list.innerHTML = cmKeyword
+        ? '<div class="cm-empty">没有找到与「' + E(cmKeyword) + '」匹配的帖子，换个关键词试试～</div>'
+        : '<div class="cm-empty">这个板块还没有帖子，来发第一帖吧～</div>';
+      return;
+    }
     list.innerHTML = posts.map((p) => `
       <button type="button" class="cm-card" data-id="${p.id}">
         <div class="cm-card-top">${tagBadge(p.tag)}<span class="cm-card-title">${E(p.title)}</span></div>
+        ${p.problem_title ? `<div class="cm-card-prob">📎 ${E(p.problem_title)}</div>` : ""}
         <div class="cm-card-snip">${E(p.snippet)}</div>
         <div class="cm-card-foot">
           <span class="cm-card-author">👤 ${E(p.username)}</span>
@@ -82,6 +108,9 @@
         <input id="cm-c-title" class="cm-input" maxlength="80" placeholder="一句话说清问题，如「快排为什么会退化到 O(n²)」">
         <div class="cm-field-label">正文</div>
         <textarea id="cm-c-body" class="cm-textarea" placeholder="详细描述你的问题 / 思路 / 反馈…"></textarea>
+        <div class="cm-field-label">关联题目 <span class="cm-field-opt">可选 · 便于在题目页聚合题解</span></div>
+        <input id="cm-c-prob" class="cm-input" list="cm-prob-list" placeholder="输入题号或题名检索，如 P1001 两数之和" autocomplete="off">
+        <datalist id="cm-prob-list"></datalist>
         <div class="cm-compose-foot">
           <span class="cm-guard-note">⚖️ 发布前会经敏感词 + AI 审核护栏</span>
           <button id="cm-c-submit" class="btn btn-primary">发布</button>
@@ -100,6 +129,15 @@
       applyPH(tag);   // 切板块 → 占位提示随之变化
     }));
     applyPH(tag);     // 初始占位提示与默认板块（讨论）一致
+    ensureProblems().then((list) => {
+      const dl = $c("#cm-prob-list");
+      if (dl) dl.innerHTML = list.map((p) => `<option value="${E(p.display)}"></option>`).join("");
+      const cur = window.cpCurrentProblem && window.cpCurrentProblem();   // 默认带上当前在做的题
+      if (cur && cur.id) {
+        const found = list.find((p) => p.id === String(cur.id));
+        if (found && $c("#cm-c-prob")) $c("#cm-c-prob").value = found.display;
+      }
+    });
     $c("#cm-c-submit").onclick = () => submitPost(() => tag);
     openDrawer();
     setTimeout(() => $c("#cm-c-title").focus(), 80);
@@ -113,11 +151,21 @@
     if (!title) { err.textContent = "标题不能为空"; return; }
     if (body.length < 2) { err.textContent = "正文太短了"; return; }
     err.textContent = "";
+    const probEl = $c("#cm-c-prob");
+    let problem_id = "", problem_title = "";
+    if (probEl && probEl.value.trim()) {
+      let hit = cmProbMap[probEl.value.trim()];
+      if (!hit) {   // 容错：用户只敲了题号
+        const token = probEl.value.trim().split(/[\s·]+/)[0].toLowerCase();
+        hit = (cmProblems || []).find((p) => p.id.toLowerCase() === token);
+      }
+      if (hit) { problem_id = hit.id; problem_title = hit.title; }
+    }
     btn.disabled = true; btn.textContent = "审核中…";
     try {
       const r = await fetch("/api/community/posts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tag: getTag(), title, body }),
+        body: JSON.stringify({ tag: getTag(), title, body, problem_id, problem_title }),
       });
       const data = await r.json();
       if (!r.ok) { err.textContent = data.error || "发布失败"; return; }
@@ -152,6 +200,7 @@
         <div class="cm-detail-top">${tagBadge(p.tag)}<span class="cm-detail-time">${fmtTime(p.created_at)}</span></div>
         <h3 class="cm-detail-title">${E(p.title)}</h3>
         <div class="cm-detail-meta">👤 ${E(p.username)}</div>
+        ${p.problem_title ? `<button type="button" class="cm-detail-prob" data-pid="${E(p.problem_id || "")}">📎 关联题目：${E(p.problem_title)} · 去做这题 →</button>` : ""}
         <div class="cm-detail-body">${E(p.body)}</div>
         <div class="cm-detail-actions">
           <button id="cm-like-btn" class="cm-like${p.liked ? " liked" : ""}">👍 <span id="cm-like-n">${p.likes}</span></button>
@@ -166,6 +215,11 @@
       </div>`;
     $c("#cm-like-btn").onclick = () => toggleLike(p.id);
     $c("#cm-r-submit").onclick = () => submitReply(p.id);
+    const probBtn = $c("#cm-drawer-body").querySelector(".cm-detail-prob");
+    if (probBtn) probBtn.onclick = () => {
+      const pid = probBtn.dataset.pid;
+      if (pid && window.cpLoadProblem) { closeDrawer(); window.cpLoadProblem(pid); }
+    };
   }
 
   async function toggleLike(id) {
@@ -213,11 +267,24 @@
     $c("#cm-new-btn").onclick = openComposer;
     $c("#cm-drawer-close").onclick = closeDrawer;
     $c("#cm-overlay").onclick = closeDrawer;
+    const search = $c("#cm-search");
+    if (search) {
+      let st;
+      search.oninput = () => {
+        clearTimeout(st);
+        st = setTimeout(() => { cmKeyword = search.value.trim(); loadList(); }, 250);
+      };
+    }
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
   }
 
   window.loadCommunity = function () {
     if (!cmInited) { bind(); cmInited = true; }
     loadList();
+  };
+  // 供 app.js 从「题目剖析」一键跳到某帖详情
+  window.cmOpenPost = function (id) {
+    if (!cmInited) { bind(); cmInited = true; }
+    openDetail(id);
   };
 })();

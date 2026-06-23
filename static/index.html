@@ -25,7 +25,7 @@
     <div class="mark">/A</div>
     <div class="brand-txt">
       <h1>ARENA</h1>
-      <p>算法竞赛辅导智能体 — LangGraph × DeepSeek</p>
+      <p>算法竞赛辅导智能体</p>
     </div>
   </div>
   <nav class="tabs">
@@ -34,7 +34,7 @@
     <button class="tab" data-view="community">[ 社群 ]</button>
     <button class="tab" data-view="dashboard">[ 学习仪表盘 ]</button>
   </nav>
-  <div class="status" id="conn-status"><span class="dot"></span> DEEPSEEK ONLINE</div>
+  <div class="status" id="conn-status"><span class="dot"></span> MODEL ONLINE</div>
   <div class="auth-area" id="auth-area"></div>
 </header>
 
@@ -57,6 +57,8 @@
       <div id="problem-display" class="problem-display hidden"></div>
       <button id="btn-analyze" class="btn btn-primary btn-block">▶ 启动智能体分析</button>
       <label class="deep-toggle"><input type="checkbox" id="deep-check"> 🧠 深度分析 <span class="pro-tag">PRO</span></label>
+
+      <div id="prob-solutions" class="prob-solutions hidden"></div>
 
       <div id="analysis-result" class="analysis hidden">
         <div class="sec-head sub"><span class="sec-no">02</span><h2>题目剖析</h2></div>
@@ -235,7 +237,7 @@
     </div>
     <div class="recent-card recent-full">
       <h3>近期提交</h3>
-      <table class="recent-table"><thead><tr><th>题目</th><th>题型</th><th>结果</th><th>得分</th></tr></thead>
+      <table class="recent-table"><thead><tr><th>题目</th><th>题型</th><th>结果</th><th>得分</th><th>时间</th></tr></thead>
       <tbody id="recent-body"></tbody></table>
     </div>
   </div>
@@ -306,7 +308,10 @@
           <button type="button" class="cm-tag" data-tag="讨论">讨论</button>
           <button type="button" class="cm-tag" data-tag="反馈">反馈</button>
         </div>
-        <button id="cm-new-btn" class="btn btn-primary cm-new-btn">✎ 发帖</button>
+        <div class="cm-toolbar-right">
+          <input id="cm-search" class="cm-search" type="search" placeholder="🔍 搜索标题 / 内容 / 作者" autocomplete="off">
+          <button id="cm-new-btn" class="btn btn-primary cm-new-btn">✎ 发帖</button>
+        </div>
       </div>
       <div id="cm-list" class="cm-list"></div>
     </div>
@@ -347,6 +352,40 @@
       <button class="pkg" data-yuan="98">¥98 → 980 点</button>
     </div>
     <div class="auth-hint">演示用模拟充值，不接真实支付。Pro 不受每日额度限制，每次调用消耗 1 点。</div>
+    <button class="recharge-ad-link" id="recharge-ad-link">或 · 看广告免费得算力点</button>
+  </div>
+</div>
+
+<!-- 解锁引导弹窗：非 Pro 使用高级能力时弹出 -->
+<div class="modal-overlay hidden" id="unlock-modal">
+  <div class="modal">
+    <button class="modal-close" id="unlock-close">×</button>
+    <h3 class="unlock-title"><span id="unlock-feature">该功能</span> 需要算力点</h3>
+    <p class="unlock-sub">导师审阅、普通智能体分析对所有人免费；<b>苏格拉底导师、导师对话、深度分析</b>是 Pro 能力，每次消耗 1 算力点。</p>
+    <div class="unlock-actions">
+      <button class="btn btn-accent btn-block" id="unlock-ad">看广告免费得 <b id="unlock-ad-pts">5</b> 点</button>
+      <button class="btn btn-primary btn-block" id="unlock-recharge">直接充值开通 Pro</button>
+    </div>
+  </div>
+</div>
+
+<!-- 模拟激励视频广告：看完倒计时即可领取算力点 -->
+<div class="modal-overlay hidden" id="ad-modal">
+  <div class="modal modal-ad">
+    <button class="modal-close hidden" id="ad-close">×</button>
+    <div class="ad-tag">赞助内容 · 模拟激励</div>
+    <div class="ad-card">
+      <div class="ad-mark">/A</div>
+      <div class="ad-text">
+        <h3 class="ad-copy">让每一次刷题，<br>都有人陪你复盘</h3>
+        <p class="ad-sub">ARENA · 算法竞赛辅导智能体</p>
+      </div>
+    </div>
+    <div class="ad-progress"><i id="ad-progress-bar"></i></div>
+    <div class="ad-foot">
+      <span class="ad-hint">广告 <b id="ad-count">—</b> · 看完即可领取算力点（演示用，不接真实广告）</span>
+      <button class="btn btn-primary" id="ad-claim" disabled>领取奖励</button>
+    </div>
   </div>
 </div>
 

@@ -8,6 +8,8 @@ const $$ = (s) => document.querySelectorAll(s);
 
 // 新建/换题时编辑器的空白模板
 const DEFAULT_CODE = "import sys\n\ndef main():\n    data = sys.stdin.read().split()\n    # 在此编写你的解法\n    print()\n\nmain()\n";
+const AD_REWARD_PTS = 5;   // 看广告奖励算力点（与后端 AD_REWARD_POINTS 一致，仅前端展示）
+const AD_SECONDS = 8;      // 模拟激励广告倒计时秒数
 
 let editor = null;            // Monaco 实例
 let currentAnalysis = {};     // 最近一次题目分析结果
@@ -19,6 +21,7 @@ let pendingSelection = "";     // 当前引用的选中代码片段
 let pendingSimilar = [];       // 检索到的相似题（待确认是有效题目后再渲染）
 let analysisStale = true;      // 当前题目是否尚未分析 / 分析已过期
 let currentProblemId = "";     // 当前题目在题单中的 id（题库 P..../ 自建 U....），空=未入库的新题
+let currentProblemMeta = null; // 当前题目元信息 {title,type,difficulty}：题库/自建题选入时记下，未分析直接提交也能正确命名
 
 // 已明确判定「当前题面不是算法题」（且分析未过期）
 function isKnownNonProblem() {
@@ -35,6 +38,25 @@ function resetAnalysisState() {
   $("#hint-level-num").textContent = "0"; $("#hint-box").innerHTML = "";
   lastStrategies = null;
   const av = $("#ana-viz"); if (av) { av.classList.add("hidden"); av.innerHTML = ""; }
+  const ps = $("#prob-solutions"); if (ps) { ps.classList.add("hidden"); ps.innerHTML = ""; }
+  resetSolveState();   // 换题/新题：判题结果、导师审阅、导师对话也一并清空，杜绝残留上一题
+}
+
+// 清空与「当前这道题」绑定的解题区：判题结果 / 导师审阅批注 / 导师对话
+function resetSolveState() {
+  const vb = $("#verdict-bar"); if (vb) { vb.classList.add("hidden"); vb.innerHTML = ""; }
+  const tr = $("#test-results");
+  if (tr) tr.innerHTML = "<div class='empty-hint'>提交评测后，这里显示判题结果与最小反例。</div>";
+  reviewData = null;
+  lastEval = { problem: "", code: "", counter: null };
+  // 导师审阅：清面板 + 编辑器行内批注 + 待应用修订快照
+  const rp = $("#review-panel"); if (rp) { rp.classList.add("hidden"); rp.innerHTML = ""; }
+  reviewFix = null; preApplySnapshot = null;
+  if (editor && window.monaco) reviewDecorations = editor.deltaDecorations(reviewDecorations, []);
+  // 导师对话：清空消息、历史与引用
+  const cl = $("#chat-log"); if (cl) cl.innerHTML = "";
+  chatHistory = [];
+  clearQuote();
 }
 
 /* 智能体定义：node 名 -> 卡片 */
@@ -196,6 +218,12 @@ async function sseStream(url, body, onEvent) {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (!resp.ok) {   // 非流式错误（如 402 PRO_REQUIRED / 429 限流）：解析 JSON 并引导
+    let data = {};
+    try { data = await resp.json(); } catch (e) {}
+    if (data.error === "PRO_REQUIRED") { promptUnlock("该功能"); refreshBilling(); return; }
+    throw new Error(data.message || data.error || ("请求失败 HTTP " + resp.status));
+  }
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
@@ -258,7 +286,9 @@ async function runAnalyze() {
         }).then(r => r.json());
         if (r.id) {
           currentProblemId = r.id;
+          currentProblemMeta = { title: currentAnalysis.title || "未命名", type: currentAnalysis.type || "其他", difficulty: currentAnalysis.difficulty || "未知" };
           await loadProblemList();
+          loadProblemSolutions(currentProblemId);
           setPbCurrent(currentAnalysis.title || "未命名");
           toast("📌 已加入「我的题目」：" + (currentAnalysis.title || ""));
         }
@@ -267,7 +297,7 @@ async function runAnalyze() {
       toast(currentAnalysis.is_problem === false ? "这看起来不是一道算法题" : "✅ 分析完成");
     }
   } catch (e) { toast("请求失败：" + e.message); }
-  finally { btn.disabled = false; btn.textContent = "🚀 启动智能体分析"; }
+  finally { btn.disabled = false; btn.textContent = "🚀 启动智能体分析"; refreshBilling(); }
 }
 
 function renderAnalysis(a) {
@@ -406,13 +436,15 @@ async function submitCode() {
   lastEval.problem = problem; lastEval.code = code; lastEval.counter = null;
 
   try {
-    const meta = analysisStale ? {} : currentAnalysis;   // 题面改过则不沿用旧分析的标签
+    // 新鲜分析优先；否则回落到题库/自建题选入时记下的元信息；都没有才「未命名」
+    const fresh = (!analysisStale && currentAnalysis.is_problem !== false) ? currentAnalysis : {};
+    const pm = currentProblemMeta || {};
     await sseStream("/api/evaluate", {
       problem, code, language: $("#lang-select").value,
       problem_id: currentProblemId,
-      problem_title: meta.title || "未命名",
-      problem_type: meta.type || "其他",
-      difficulty: meta.difficulty || "未知",
+      problem_title: fresh.title || pm.title || "未命名",
+      problem_type: fresh.type || pm.type || "其他",
+      difficulty: fresh.difficulty || pm.difficulty || "未知",
     }, (ev) => {
       if (ev.event === "node") {
         if (ev.node === "review") { setAgent("review", "done"); setAgent("test", "working"); renderReview(ev.data.review); }
@@ -423,7 +455,7 @@ async function submitCode() {
     toast("✅ 评测完成");
     if ($("#io-history").classList.contains("active")) loadSubmissions();
   } catch (e) { toast("评测失败：" + e.message); }
-  finally { btn.disabled = false; btn.textContent = "✅ 提交评测"; }
+  finally { btn.disabled = false; btn.textContent = "✅ 提交评测"; refreshBilling(); }
 }
 
 let reviewData = null;
@@ -519,6 +551,7 @@ async function startDebug() {
   finally {
     setAgent("debug", "done");
     if (btn) { btn.disabled = false; btn.textContent = "🛠️ 再调试一次"; }
+    refreshBilling();
   }
 }
 function renderVerdict(s) {
@@ -545,6 +578,7 @@ function renderVerdict(s) {
 async function requestHint() {
   const problem = $("#problem-input").value.trim();
   if (!problem) return toast("请先输入题目");
+  if (!currentBilling.is_pro) return promptUnlock("苏格拉底导师");
   if (isKnownNonProblem()) return nonProblemHint();
   expandPanel("tutor");
   if (hintLevel >= 4) return toast("已到最深提示层级");
@@ -564,7 +598,7 @@ async function requestHint() {
     });
     hintHistory.push(acc);
   } catch (e) { toast("提示获取失败"); }
-  finally { body.classList.remove("cursor-blink"); setAgent("tutor", "done"); }
+  finally { body.classList.remove("cursor-blink"); setAgent("tutor", "done"); refreshBilling(); }
 }
 function addHintEntry(label, text) {
   const div = document.createElement("div");
@@ -579,6 +613,7 @@ function addHintEntry(label, text) {
 async function sendChat() {
   const q = $("#chat-input").value.trim();
   if (!q) return;
+  if (!currentBilling.is_pro) return promptUnlock("导师对话");
   expandPanel("chat");
   $("#chat-input").value = "";
   const sel = pendingSelection;
@@ -599,7 +634,7 @@ async function sendChat() {
     });
     chatHistory.push({ role: "user", content: q }, { role: "assistant", content: acc });
   } catch (e) { aMsg.textContent = "回复失败"; }
-  finally { aMsg.classList.remove("cursor-blink"); setAgent("tutor", "done"); }
+  finally { aMsg.classList.remove("cursor-blink"); setAgent("tutor", "done"); refreshBilling(); }
 }
 function captureSelection() {
   if (!editor) return;
@@ -660,6 +695,7 @@ async function requestReview() {
   } finally {
     btn.disabled = false; btn.textContent = old;
     setAgent("review", "done");
+    refreshBilling();
   }
 }
 
@@ -906,6 +942,7 @@ function togglePbPanel() {
 }
 function pasteNewProblem() {       // 抽屉里「粘贴自己的题目」：切回可编辑空白输入
   currentProblemId = "";
+  currentProblemMeta = null;
   resetAnalysisState();
   setProblemText("");
   editProblem();
@@ -921,9 +958,11 @@ async function loadProblem(pid) {
   setProblemText(text);          // 全文展示（只读），同时写入数据源
   resetAnalysisState();          // 换题 → 旧分析/提示作废
   currentProblemId = pid;        // 记住当前题目 id（用于 AC 标记）
+  currentProblemMeta = { title: p.title || "未命名", type: p.type || "其他", difficulty: p.difficulty || "未知" };
   setPbCurrent(p.title);
   await loadProblemCode(pid);    // 换题 → 编辑器恢复该题上次代码，否则回到空白模板
   if ($("#io-history").classList.contains("active")) loadSubmissions();
+  loadProblemSolutions(pid);     // 聚合这道题的社群题解
   toast("已载入：" + p.title);
 }
 
@@ -936,6 +975,43 @@ async function loadProblemCode(pid) {
     editor.setValue(last ? last.code : DEFAULT_CODE);
   } catch (e) { editor.setValue(DEFAULT_CODE); }
 }
+
+/* ---------------- 题解聚合：本题的社群帖子 ---------------- */
+function tagClsOf(t) { return ({ "求助": "ask", "题解": "solu", "讨论": "disc", "反馈": "fb" })[t] || "disc"; }
+// 把「这道题」的社群题解/讨论聚合到题目下方，一键跳到社群看
+async function loadProblemSolutions(pid) {
+  const box = $("#prob-solutions");
+  if (!box) return;
+  if (!pid) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+  try {
+    const r = await fetch("/api/community/posts?problem_id=" + encodeURIComponent(pid)).then(r => r.json());
+    const posts = r.posts || [];
+    if (!posts.length) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+    box.classList.remove("hidden");
+    box.innerHTML = `<div class="ps-head">💬 社群里这道题的讨论 · ${posts.length} 篇</div>` +
+      `<div class="ps-list">` + posts.slice(0, 6).map(p =>
+        `<button type="button" class="ps-item" data-id="${p.id}">
+           <span class="cm-tag-badge ${tagClsOf(p.tag)}">${esc(p.tag)}</span>
+           <span class="ps-title">${esc(p.title)}</span>
+           <span class="ps-meta">👍${p.likes} · 💬${p.reply_count}</span>
+         </button>`).join("") + `</div>`;
+    box.querySelectorAll(".ps-item").forEach(b => b.onclick = () => openCommunityPost(Number(b.dataset.id)));
+  } catch (e) { box.classList.add("hidden"); box.innerHTML = ""; }
+}
+// 切到「社群」标签并打开指定帖子
+function openCommunityPost(id) {
+  const tab = document.querySelector('.tab[data-view="community"]');
+  if (tab) tab.click();
+  if (window.cmOpenPost) window.cmOpenPost(id);
+}
+// 供 community.js 复用：当前正在做的题（发帖时默认关联） / 从社群跳回工作台载题
+window.cpCurrentProblem = () => currentProblemId
+  ? { id: currentProblemId, title: (currentProblemMeta && currentProblemMeta.title) || "" } : null;
+window.cpLoadProblem = (pid) => {
+  const tab = document.querySelector('.tab[data-view="workspace"]');
+  if (tab) tab.click();
+  loadProblem(pid);
+};
 
 /* ---------------- 每日报告（Pro） ---------------- */
 let lastReport = null;
@@ -1054,7 +1130,7 @@ async function drawShareCard(rep) {
   ctx.fillStyle = paper; ctx.font = "600 16px " + SANS; ctx.textAlign = "left";
   ctx.fillText("🎓 和 ARENA 一起刷题，每天进步一点点", M + 22, H - 98);
   ctx.fillStyle = inkMute; ctx.font = "400 13px " + MONO; ctx.textAlign = "center";
-  ctx.fillText("cp-tutor-agent · LangGraph × DeepSeek 多智能体辅导", W / 2, H - 52);
+  ctx.fillText("cp-tutor-agent · LangGraph 多智能体辅导", W / 2, H - 52);
   ctx.textAlign = "left";
 }
 
@@ -1124,8 +1200,9 @@ async function loadDashboard() {
   // 近期
   $("#recent-body").innerHTML = s.recent.length ? s.recent.map(r => `
     <tr><td>${esc(r.problem_title)}</td><td>${esc(r.problem_type)}</td>
-    <td><span class="res-pill ${r.error_kind}">${r.error_kind}</span></td><td>${r.score}</td></tr>`).join("")
-    : "<tr><td colspan='4' class='empty-hint'>还没有提交记录</td></tr>";
+    <td><span class="res-pill ${r.error_kind}">${r.error_kind}</span></td><td>${r.score}</td>
+    <td class="recent-time">${r.ts ? fmtSubTime(r.ts) : "—"}</td></tr>`).join("")
+    : "<tr><td colspan='5' class='empty-hint'>还没有提交记录</td></tr>";
 }
 // GitHub 风格刷题日历：近 53 周 × 7 天的贡献热力图
 function renderHeatmap(daily, activeDays) {
@@ -1295,7 +1372,31 @@ function initPanels() {
 
 /* ---------------- 题目自动保存 ---------------- */
 /* ---------------- 题目：全文展示 / 编辑切换 ---------------- */
-function renderProblemDisplay(text) { $("#problem-display").textContent = text || ""; }
+// 把题库/用户题面转成更易读的 markdown：小节标题加粗、样例数据代码块化、幂次转上标
+function beautifyProblem(raw) {
+  let t = String(raw || "");
+  // 1) 【小节标题】单独成行 → 加粗小标题
+  t = t.replace(/^[ \t]*【\s*(.+?)\s*】[ \t]*$/gm, "\n**$1**\n");
+  // 2) 「样例输入/输出：」后紧跟的数据块 → 代码块（边界：空行 / 下个标题 / 串尾）
+  t = t.replace(
+    /(样例输入|样例输出|输入样例|输出样例)\s*[:：][ \t]*\n([\s\S]*?)(?=\n[ \t]*\n|\n[ \t]*【|\n[ \t]*\*\*|$)/g,
+    (m, label, block) => "\n**" + label + "**\n\n```\n" + block.replace(/[ \t\r\n]+$/, "") + "\n```\n"
+  );
+  // 3) 幂次 10^9 / O(n^2) / x^{-3} → 上标
+  t = t.replace(/\^\{?(-?\w+)\}?/g, "<sup>$1</sup>");
+  return t;
+}
+function renderProblemDisplay(text) {
+  const el = $("#problem-display");
+  if (!el) return;
+  const raw = text || "";
+  if (window.marked && raw.trim()) {
+    try { el.innerHTML = marked.parse(beautifyProblem(raw)); el.classList.add("rich"); return; }
+    catch (e) {}
+  }
+  el.classList.remove("rich");
+  el.textContent = raw;
+}
 function setProblemDisplayMode(on) {
   $("#problem-input").classList.toggle("hidden", on);
   $("#problem-display").classList.toggle("hidden", !on);
@@ -1317,6 +1418,7 @@ function initPersistence() {
   inp.addEventListener("input", () => {
     analysisStale = true;        // 题面改了 → 之前的分析判定作废
     currentProblemId = "";       // 手动改题 → 视为新题（待分析后入库）
+    currentProblemMeta = null;   // 元信息随之失效，待分析后重建
     clearTimeout(t); t = setTimeout(() => localStorage.setItem("cp_problem", inp.value), 400);
   });
 }
@@ -1391,6 +1493,8 @@ async function loadMe() {
     renderAuthArea(); renderAdaptiveNote();
   } catch (e) {}
 }
+// LLM 操作会在服务端按次扣算力点；操作后即时刷新顶栏，免得用户以为没扣还要手动刷新页面
+function refreshBilling() { if (currentUser) loadMe(); }
 function renderAuthArea() {
   const a = $("#auth-area");
   if (currentUser) {
@@ -1402,9 +1506,10 @@ function renderAuthArea() {
         <span class="user-name">${esc(currentUser.username)}</span>
         <span class="tier-badge ${p.tier || "novice"}" title="${esc(p.summary || "")}">${esc(p.tier_label || "新手")}</span>
         ${member}
-      </span><button class="recharge-link" id="recharge-btn">充值</button><button class="logout-btn" id="logout-btn">退出</button>`;
+      </span><button class="ad-link" id="ad-btn" title="看广告免费得算力点">看广告得点</button><button class="recharge-link" id="recharge-btn">充值</button><button class="logout-btn" id="logout-btn">退出</button>`;
     $("#logout-btn").onclick = logout;
     $("#recharge-btn").onclick = () => $("#recharge-modal").classList.remove("hidden");
+    $("#ad-btn").onclick = openAdModal;
   } else {
     a.innerHTML = `<button class="auth-btn ghost" data-open="login">登录</button>
                    <button class="auth-btn" data-open="register">注册</button>`;
@@ -1461,6 +1566,51 @@ async function recharge(yuan) {
     toast("✨ 充值成功，当前 " + r.credits + " 算力点，Pro 已开通");
   } catch (e) { toast("充值失败"); }
 }
+
+/* ---------------- 功能解锁 / 模拟激励广告 ---------------- */
+// 非 Pro 触碰高级能力时的引导：未登录先登录，已登录则弹解锁选项（看广告 / 充值）
+function promptUnlock(feature) {
+  if (!currentUser) {
+    toast("「" + feature + "」是 Pro 能力，请先登录后看广告免费得点或充值");
+    openAuth("login");
+    return;
+  }
+  $("#unlock-feature").textContent = feature;
+  $("#unlock-ad-pts").textContent = AD_REWARD_PTS;
+  $("#unlock-modal").classList.remove("hidden");
+}
+function closeUnlock() { $("#unlock-modal").classList.add("hidden"); }
+
+let adTimer = null;
+function openAdModal() {
+  if (!currentUser) { toast("请先登录再看广告领算力点"); openAuth("login"); return; }
+  const claim = $("#ad-claim"), count = $("#ad-count"), close = $("#ad-close");
+  $("#ad-modal").classList.remove("hidden");
+  claim.disabled = true; claim.textContent = "领取奖励"; close.classList.add("hidden");
+  let left = AD_SECONDS;
+  count.textContent = "广告 " + left + "s";
+  clearInterval(adTimer);
+  adTimer = setInterval(() => {
+    left--;
+    if (left > 0) { count.textContent = "广告 " + left + "s"; return; }
+    clearInterval(adTimer);
+    count.textContent = "✓ 可领取奖励";
+    claim.disabled = false; close.classList.remove("hidden");
+  }, 1000);
+}
+function closeAdModal() { clearInterval(adTimer); $("#ad-modal").classList.add("hidden"); }
+async function claimAdReward() {
+  const claim = $("#ad-claim");
+  claim.disabled = true; claim.textContent = "发放中…";
+  try {
+    const r = await fetch("/api/ad-reward", { method: "POST" });
+    const data = await r.json();
+    if (!r.ok) { toast(data.error || "领取失败"); closeAdModal(); return; }
+    closeAdModal();
+    await loadMe();
+    toast("🎉 已到账 " + data.gained + " 算力点，今日还可看 " + data.remaining_today + " 次");
+  } catch (e) { toast("领取失败，请重试"); claim.disabled = false; claim.textContent = "领取奖励"; }
+}
 function bindAuth() {
   $("#auth-close").onclick = closeAuth;
   $("#auth-submit").onclick = submitAuth;
@@ -1471,10 +1621,20 @@ function bindAuth() {
   $("#recharge-close").onclick = () => $("#recharge-modal").classList.add("hidden");
   $("#recharge-modal").onclick = (e) => { if (e.target.id === "recharge-modal") $("#recharge-modal").classList.add("hidden"); };
   $$("#recharge-pkgs .pkg").forEach(b => b.onclick = () => recharge(parseInt(b.dataset.yuan)));
+  // 解锁引导 + 模拟激励广告
+  $("#unlock-close").onclick = closeUnlock;
+  $("#unlock-modal").onclick = (e) => { if (e.target.id === "unlock-modal") closeUnlock(); };
+  $("#unlock-ad").onclick = () => { closeUnlock(); openAdModal(); };
+  $("#unlock-recharge").onclick = () => { closeUnlock(); $("#recharge-modal").classList.remove("hidden"); };
+  $("#ad-close").onclick = closeAdModal;
+  $("#ad-claim").onclick = claimAdReward;
+  // 倒计时未结束（领取键禁用）时点遮罩不关闭，避免跳过广告
+  $("#ad-modal").onclick = (e) => { if (e.target.id === "ad-modal" && !$("#ad-claim").disabled) closeAdModal(); };
+  $("#recharge-ad-link").onclick = () => { $("#recharge-modal").classList.add("hidden"); openAdModal(); };
   // 深度分析仅 Pro
   $("#deep-check").onchange = (e) => {
     if (e.target.checked && !currentBilling.is_pro) {
-      toast("深度分析是 Pro 功能，请先充值开通"); e.target.checked = false;
+      e.target.checked = false; promptUnlock("深度分析");
     }
   };
 }

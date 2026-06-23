@@ -83,5 +83,11 @@ class Settings:
     MAX_CODE_CHARS = 20000     # 代码长度上限
     MAX_QUESTION_CHARS = 2000  # 提问长度上限
 
+    # 功能权限分级：以下高级能力需 Pro 算力点（普通分析 / 导师审阅免费）
+    PRO_ONLY = ("hint", "chat")   # 苏格拉底导师、导师对话；深度分析另在 analyze 内判定
+    # 激励广告（模拟）：看广告得算力点
+    AD_REWARD_POINTS = 5       # 每看完一次广告发放的算力点
+    AD_DAILY_LIMIT = 5         # 每用户每日看广告得点次数上限
+
 
 settings = Settings()

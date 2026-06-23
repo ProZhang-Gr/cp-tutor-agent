@@ -52,3 +52,18 @@ def check_and_log(ip, user_id, endpoint, is_pro=False):
     with session_scope() as s:
         s.add(AuditLog(ts=time.time(), user_id=user_id, ip=ip, endpoint=endpoint))
     return True, ""
+
+
+def count_endpoint_today(user_id, endpoint):
+    """过去 24h 该用户在某端点的调用次数（用于看广告等按日限次）。"""
+    since = time.time() - 86400
+    with session_scope() as s:
+        return s.scalar(select(func.count()).select_from(AuditLog)
+                        .where(AuditLog.ts >= since, AuditLog.user_id == user_id,
+                               AuditLog.endpoint == endpoint)) or 0
+
+
+def log_event(user_id, ip, endpoint):
+    """写一条审计记录（不做限流/配额判断）。"""
+    with session_scope() as s:
+        s.add(AuditLog(ts=time.time(), user_id=user_id, ip=ip, endpoint=endpoint))

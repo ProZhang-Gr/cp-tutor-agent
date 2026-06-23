@@ -90,6 +90,20 @@ def _abuse_block(request, uid, endpoint):
     return None if ok else JSONResponse({"error": msg}, status_code=429)
 
 
+def _require_pro(uid):
+    """高级能力（苏格拉底导师 / 导师对话 / 深度分析）需 Pro 算力点。
+
+    非 Pro 返回 402，并带 PRO_REQUIRED 标记，供前端引导「看广告得点 / 充值」。
+    导师审阅、普通智能体分析不走这里，对游客与普通用户免费开放。
+    """
+    if not billing.get_status(uid)["is_pro"]:
+        return JSONResponse(
+            {"error": "PRO_REQUIRED",
+             "message": "该功能需算力点。看广告免费得点，或充值开通 Pro。"},
+            status_code=402)
+    return None
+
+
 # ------------------------- 请求模型 -------------------------
 class AnalyzeReq(BaseModel):
     problem: str
@@ -210,6 +224,25 @@ def recharge(req: RechargeReq, arena_session: str = Cookie(default=None)):
         return JSONResponse({"error": "请先登录再充值"}, status_code=401)
     bal = billing.recharge(uid, req.yuan)
     return {"credits": bal, "is_pro": (bal or 0) > 0}
+
+
+@app.post("/api/ad-reward")
+def ad_reward(request: Request, arena_session: str = Cookie(default=None)):
+    """看完一段（模拟）激励广告后发放算力点。需登录，按日限次防滥用。"""
+    uid = _uid(arena_session)
+    if uid is None:
+        return JSONResponse({"error": "请先登录再看广告领算力点"}, status_code=401)
+    used = guard.count_endpoint_today(uid, "ad_reward")
+    if used >= settings.AD_DAILY_LIMIT:
+        return JSONResponse(
+            {"error": "今日看广告次数已达上限（%d 次/天），明天再来或直接充值" % settings.AD_DAILY_LIMIT},
+            status_code=429)
+    bal = billing.grant(uid, settings.AD_REWARD_POINTS)
+    if bal is None:
+        return JSONResponse({"error": "发放失败，请重试"}, status_code=400)
+    guard.log_event(uid, _ip(request), "ad_reward")
+    return {"credits": bal, "gained": settings.AD_REWARD_POINTS,
+            "remaining_today": max(0, settings.AD_DAILY_LIMIT - used - 1)}
 
 
 # ------------------------- 题库 -------------------------
@@ -344,6 +377,9 @@ def hint(req: HintReq, request: Request, arena_session: str = Cookie(default=Non
     uid = _uid(arena_session)
     if len(req.problem) > settings.MAX_PROBLEM_CHARS:
         return JSONResponse({"error": "题面过长"}, status_code=400)
+    pro = _require_pro(uid)              # 苏格拉底导师为 Pro 能力
+    if pro:
+        return pro
     blocked = _abuse_block(request, uid, "hint")
     if blocked:
         return blocked
@@ -382,6 +418,9 @@ def chat(req: ChatReq, request: Request, arena_session: str = Cookie(default=Non
     uid = _uid(arena_session)
     if len(req.question) > settings.MAX_QUESTION_CHARS or len(req.code) > settings.MAX_CODE_CHARS:
         return JSONResponse({"error": "输入过长"}, status_code=400)
+    pro = _require_pro(uid)              # 导师对话为 Pro 能力
+    if pro:
+        return pro
     blocked = _abuse_block(request, uid, "chat")
     if blocked:
         return blocked
@@ -497,6 +536,8 @@ class PostReq(BaseModel):
     tag: str = "讨论"
     title: str = ""
     body: str = ""
+    problem_id: str = ""      # 可选关联题目
+    problem_title: str = ""
 
 
 class ReplyReq(BaseModel):
@@ -504,8 +545,8 @@ class ReplyReq(BaseModel):
 
 
 @app.get("/api/community/posts")
-def community_posts(tag: str = ""):
-    return {"posts": community.list_posts(tag or None)}
+def community_posts(tag: str = "", q: str = "", problem_id: str = ""):
+    return {"posts": community.list_posts(tag or None, q or None, problem_id or None)}
 
 
 @app.get("/api/community/posts/{pid}")
@@ -526,7 +567,8 @@ def community_create(req: PostReq, request: Request, arena_session: str = Cookie
         return blocked
     user = auth.get_user_by_id(uid)
     post, err = community.create_post(uid, user["username"] if user else "用户",
-                                      req.tag, req.title, req.body)
+                                      req.tag, req.title, req.body,
+                                      req.problem_id, req.problem_title)
     if err:
         return JSONResponse({"error": err}, status_code=400)
     return {"post": post}

@@ -492,6 +492,35 @@ body.resizing *{cursor:col-resize!important;user-select:none}
   border:1px solid var(--line);background:var(--field);color:var(--ink);cursor:pointer;transition:.15s}
 .pkg:hover{border-color:var(--gold);background:rgba(190,142,44,.08)}
 
+/* ===================== 看广告入口 / 解锁引导 / 模拟激励（补充材料2 #10 + 广告） =====================
+   克制原则：沿用暖色书桌 + 深青点缀，不做花哨深色视频屏；广告位像一张编辑排版的赞助卡 */
+.ad-link{font-size:11.5px;color:var(--ink-dim);background:none;border:none;cursor:pointer;
+  padding:2px;font-family:var(--font-body)}
+.ad-link:hover{color:var(--accent);text-decoration:underline}
+.recharge-ad-link{display:block;width:100%;margin-top:12px;background:none;border:none;cursor:pointer;
+  font-family:var(--font-body);font-size:12.5px;color:var(--accent);text-align:center;padding:6px}
+.recharge-ad-link:hover{color:var(--accent-strong);text-decoration:underline}
+.unlock-title{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--ink);margin:4px 0 8px}
+.unlock-sub{font-size:12.5px;line-height:1.7;color:var(--ink-dim);margin-bottom:16px}
+.unlock-sub b{color:var(--accent-strong)}
+.unlock-actions{display:flex;flex-direction:column;gap:10px}
+.unlock-actions .btn b{font-family:var(--font-mono)}
+.modal-ad{width:400px;max-width:92vw}
+.ad-tag{font-family:var(--font-mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;
+  color:var(--ink-mute);margin-bottom:12px}
+.ad-card{display:flex;align-items:center;gap:16px;padding:22px;background:var(--tint);
+  border:1px solid var(--line-soft);border-radius:var(--r-sm)}
+.ad-mark{flex-shrink:0;width:52px;height:52px;display:grid;place-items:center;border-radius:13px;
+  background:var(--accent);color:var(--accent-ink);font-family:var(--font-mono);font-weight:700;font-size:21px}
+.ad-copy{font-family:var(--font-display);font-size:18px;font-weight:600;line-height:1.4;color:var(--ink);margin:0}
+.ad-sub{font-size:11.5px;color:var(--ink-mute);margin-top:7px}
+.ad-progress{height:3px;margin:16px 0 14px;background:var(--surface2);border-radius:20px;overflow:hidden}
+.ad-progress i{display:block;height:100%;width:0;background:var(--accent);border-radius:20px;transition:width .9s linear}
+.ad-foot{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ad-hint{font-size:11.5px;color:var(--ink-dim);line-height:1.5;text-align:left;flex:1}
+.ad-hint b{font-family:var(--font-mono);color:var(--accent-strong)}
+.ad-foot .btn{flex-shrink:0}
+
 /* ===================== 题库浮层下拉 ===================== */
 .pb-dropdown{position:relative}
 .pb-toggle{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-body);font-size:12.5px;font-weight:600;
@@ -765,7 +794,30 @@ body.resizing *{cursor:col-resize!important;user-select:none}
   color:var(--ink-dim);padding:6px 14px;border-radius:20px;cursor:pointer;transition:.14s}
 .cm-tag:hover{border-color:var(--accent);color:var(--accent)}
 .cm-tag.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
-.cm-new-btn{margin-left:auto;padding:9px 18px}
+.cm-new-btn{padding:9px 18px}
+/* 社群搜索栏（补充材料2 #1） */
+.cm-toolbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.cm-search{font-family:var(--font-body);font-size:12.5px;background:var(--field);
+  border:1px solid var(--line);border-radius:var(--r-sm);color:var(--ink);
+  padding:8px 12px;width:240px;max-width:46vw;transition:.15s}
+.cm-search:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
+.cm-search::placeholder{color:var(--ink-mute)}
+/* 题解关联：题目下方聚合社群帖 + 帖子上的关联题目标记（补充材料2 #1 延伸） */
+.prob-solutions{margin-top:14px;padding-top:13px;border-top:1px solid var(--line-soft)}
+.ps-head{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.4px;color:var(--ink-mute);margin-bottom:8px}
+.ps-list{display:flex;flex-direction:column;gap:6px}
+.ps-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;cursor:pointer;
+  background:var(--tint);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:8px 10px;transition:.14s}
+.ps-item:hover{border-color:var(--accent);background:var(--accent-tint)}
+.ps-title{flex:1;min-width:0;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ps-meta{font-family:var(--font-mono);font-size:10px;color:var(--ink-mute);flex-shrink:0}
+.cm-card-prob{font-family:var(--font-body);font-size:11px;color:var(--accent);background:var(--accent-tint);
+  border:1px solid rgba(31,111,102,.2);border-radius:6px;padding:2px 8px;margin:6px 0 2px;display:inline-block}
+.cm-detail-prob{font-family:var(--font-body);font-size:12px;color:var(--accent);background:var(--accent-tint);
+  border:1px solid rgba(31,111,102,.28);border-radius:var(--r-sm);padding:7px 11px;margin:10px 0 4px;cursor:pointer;
+  display:inline-block;transition:.14s}
+.cm-detail-prob:hover{background:rgba(31,111,102,.16);border-color:var(--accent)}
+.cm-field-opt{font-weight:400;color:var(--ink-mute);font-size:11px}
 
 .cm-list{display:flex;flex-direction:column;gap:11px}
 .cm-card{display:block;width:100%;text-align:left;background:var(--paper);border:1px solid var(--line);
