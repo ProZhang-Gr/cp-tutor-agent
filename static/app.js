@@ -1484,6 +1484,7 @@ function bind() {
 
 /* ---------------- 认证 / 画像 ---------------- */
 let currentUser = null, currentProfile = null, currentBilling = { credits: 0, is_pro: false }, authMode = "login";
+let authContext = "";   // 登录弹窗上下文提示（如「被某个 Pro 功能引导而来」），弹窗内切 tab 时保留
 
 async function loadMe() {
   try {
@@ -1513,7 +1514,7 @@ function renderAuthArea() {
   } else {
     a.innerHTML = `<button class="auth-btn ghost" data-open="login">登录</button>
                    <button class="auth-btn" data-open="register">注册</button>`;
-    a.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openAuth(b.dataset.open));
+    a.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openAuth(b.dataset.open, ""));
   }
 }
 function renderAdaptiveNote() {
@@ -1525,15 +1526,18 @@ function renderAdaptiveNote() {
         ? `（薄弱：${esc(currentProfile.weak_types.join("、"))}）` : "");
   } else { n.classList.add("hidden"); }
 }
-function openAuth(mode) {
+function openAuth(mode, context) {
   authMode = mode;
+  if (context !== undefined) authContext = context;   // 仅显式传入时更新；弹窗内切 tab 不传，保留上下文
   $("#auth-modal").classList.remove("hidden");
   $("#auth-err").textContent = "";
-  $$(".modal-tab").forEach(t => t.classList.toggle("active", t.dataset.auth === mode));
+  const ctx = $("#auth-context");
+  if (ctx) { ctx.textContent = authContext || ""; ctx.classList.toggle("hidden", !authContext); }
+  $$("#auth-modal .modal-tab").forEach(t => t.classList.toggle("active", t.dataset.auth === mode));
   $("#auth-submit").textContent = mode === "login" ? "登录" : "注册";
   $("#auth-username").focus();
 }
-function closeAuth() { $("#auth-modal").classList.add("hidden"); }
+function closeAuth() { $("#auth-modal").classList.add("hidden"); authContext = ""; }
 async function submitAuth() {
   const username = $("#auth-username").value.trim(), password = $("#auth-password").value;
   if (!username || !password) { $("#auth-err").textContent = "请输入用户名和密码"; return; }
@@ -1571,8 +1575,7 @@ async function recharge(yuan) {
 // 非 Pro 触碰高级能力时的引导：未登录先登录，已登录则弹解锁选项（看广告 / 充值）
 function promptUnlock(feature) {
   if (!currentUser) {
-    toast("「" + feature + "」是 Pro 能力，请先登录后看广告免费得点或充值");
-    openAuth("login");
+    openAuth("login", "「" + feature + "」是 Pro 能力 · 登录后即可看广告免费体验，或充值开通");
     return;
   }
   $("#unlock-feature").textContent = feature;

@@ -52,8 +52,8 @@
   function E(s) { return (window.esc || ((x) => x))(s); }
   function loggedIn() { return !!(window.currentUser); }
   function needLogin(action) {
-    (window.toast || console.log)("请先登录再" + action);
-    if (window.openAuth) window.openAuth("login");
+    if (window.openAuth) window.openAuth("login", "登录后即可" + action + "，并参与社群讨论");
+    else (window.toast || console.log)("请先登录再" + action);
   }
 
   async function loadList() {

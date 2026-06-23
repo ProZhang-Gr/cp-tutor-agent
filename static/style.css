@@ -462,6 +462,9 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 .modal-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
 .auth-err{color:var(--bad);font-size:12px;min-height:16px;margin-bottom:6px}
 .auth-hint{font-size:11.5px;color:var(--ink-mute);line-height:1.6;margin-top:14px;text-align:center}
+/* 登录弹窗上下文横幅：被 Pro 功能 / 社群互动引导而来时，就地说清为何登录（补充材料2 体验优化） */
+.auth-context{font-size:12.5px;line-height:1.6;color:var(--accent-strong);background:var(--accent-tint);
+  border:1px solid rgba(31,111,102,.22);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:12px}
 .auth-hint b{color:var(--accent)}
 
 /* 会员 / 充值 / 深度分析 */
