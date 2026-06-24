@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ARENA 宣传海报 · 功能全景</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ARENA 宣传海报 · 功能全景（竖版 1242×2208）
+   ★ 改文案：改 <body> 文字；改配色：改 :root；导出：浏览器 Ctrl+P 存 PDF 或截图
+   ============================================================ */
+:root{
+  --paper:#FCF6EA; --paper2:#F6ECD8; --ink:#2E2A22; --ink-soft:#7A7060;
+  --orange:#E8853A; --orange-deep:#CF6A1E; --teal:#1F6F66; --teal-deep:#134A43;
+  --gold:#C79A3E; --line:#E7DBC2;
+  --serif:"Noto Serif SC","Source Han Serif SC","Songti SC",Georgia,serif;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  --mono:"JetBrains Mono","Cascadia Code","SF Mono",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#d8cdb4}
+.poster{position:relative;width:1242px;height:2208px;margin:0 auto;overflow:hidden;
+  background:
+    radial-gradient(1100px 760px at 80% 3%, rgba(232,133,58,.20), transparent 58%),
+    radial-gradient(900px 620px at 4% 34%, rgba(31,111,102,.10), transparent 60%),
+    var(--paper);
+  color:var(--ink);font-family:var(--sans);padding:84px 92px 72px;display:flex;flex-direction:column}
+.sun{position:absolute;top:-150px;right:-140px;width:580px;height:580px;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%, rgba(232,133,58,.32), rgba(232,133,58,.08) 46%, transparent 70%);
+  pointer-events:none}
+
+.eyebrow{font-family:var(--mono);font-size:25px;letter-spacing:.04em;color:var(--teal);
+  display:flex;align-items:center;gap:13px;margin-bottom:24px}
+.eyebrow .dot{width:11px;height:11px;border-radius:50%;background:var(--orange);
+  box-shadow:0 0 0 6px rgba(232,133,58,.18)}
+.eyebrow .live{color:var(--ink-soft)}
+
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
+.wordmark{font-family:var(--serif);font-weight:900;font-size:118px;line-height:.9;letter-spacing:.04em}
+.wordmark::after{content:"";display:block;width:150px;height:11px;margin-top:14px;background:var(--teal);border-radius:3px}
+.brand-sub{font-family:var(--sans);font-weight:500;font-size:28px;color:var(--ink-soft);letter-spacing:.28em;margin-top:18px}
+.badge{font-family:var(--mono);font-size:22px;color:var(--teal-deep);border:1.5px solid var(--teal);
+  border-radius:12px;padding:10px 16px;text-align:center;line-height:1.35;background:rgba(31,111,102,.06)}
+.badge b{font-family:var(--serif);font-size:30px;color:var(--orange-deep);display:block}
+
+.headline{font-family:var(--serif);font-weight:700;font-size:76px;line-height:1.16;margin-top:40px}
+.headline .hl{color:var(--teal)}
+.subhead{font-size:31px;line-height:1.55;color:var(--ink-soft);margin-top:20px;max-width:1010px}
+
+/* 功能模块（能力地图） */
+.mods{margin-top:34px}
+.mod{padding:22px 0;border-top:1.5px solid var(--line)}
+.mod:first-child{border-top:none;padding-top:6px}
+.mod-title{display:flex;align-items:center;gap:14px;font-family:var(--serif);font-weight:700;
+  font-size:36px;margin-bottom:16px}
+.mod-title .ic{width:58px;height:58px;border-radius:15px;display:grid;place-items:center;font-size:28px;
+  background:rgba(31,111,102,.10);color:var(--teal);border:1.5px solid rgba(31,111,102,.22);flex:0 0 auto}
+.mod:nth-child(even) .mod-title .ic{background:rgba(232,133,58,.12);color:var(--orange-deep);border-color:rgba(232,133,58,.28)}
+.mod-title small{font-family:var(--sans);font-weight:500;font-size:23px;color:var(--ink-soft);letter-spacing:.02em}
+.pills{display:flex;flex-wrap:wrap;gap:12px;padding-left:72px}
+.pill{font-size:25px;padding:9px 18px;border-radius:999px;background:var(--paper2);
+  border:1.5px solid var(--line);color:var(--ink);line-height:1}
+.pill.hot{border-color:var(--teal);color:var(--teal-deep);background:rgba(31,111,102,.10);font-weight:500}
+
+/* CTA + 二维码 */
+.cta{margin-top:auto;padding-top:30px;display:flex;align-items:center;justify-content:space-between;gap:36px}
+.cta-text .k{font-family:var(--serif);font-weight:700;font-size:48px;line-height:1.2}
+.cta-text .k em{color:var(--orange-deep);font-style:normal}
+.cta-text .u{font-family:var(--mono);font-size:32px;color:var(--teal);margin-top:16px}
+.cta-text .note{font-size:24px;color:var(--ink-soft);margin-top:11px}
+.qr{flex:0 0 auto;width:250px;height:250px;background:#fff;border-radius:18px;padding:18px;
+  border:1.5px solid var(--line);box-shadow:0 16px 40px rgba(46,42,34,.12)}
+.qr svg{width:100%;height:100%;display:block}
+.qr-fallback{width:100%;height:100%;display:grid;place-items:center;color:var(--ink-soft);
+  font-family:var(--mono);font-size:20px;text-align:center;border:2px dashed var(--line);border-radius:10px}
+
+.foot{margin-top:26px;font-family:var(--mono);font-size:22px;color:var(--ink-soft);
+  display:flex;justify-content:space-between;align-items:center;gap:16px;border-top:1.5px solid var(--line);padding-top:22px}
+.foot .gh{color:var(--teal)}
+.foot .gh b{color:var(--orange-deep);font-weight:700;margin-right:8px}
+
+/* —— 无二维码版：行动召唤居中、网址做成醒目按钮 —— */
+.cta{justify-content:center !important;text-align:center}
+.cta-text{max-width:1020px}
+.cta-text .u{display:inline-block;border:2px solid var(--teal);border-radius:14px;
+  padding:14px 32px;background:rgba(31,111,102,.07);margin-top:20px}
+</style>
+</head>
+<body>
+<div class="poster">
+  <div class="sun"></div>
+
+  <div class="eyebrow"><span class="dot"></span><span>// 算法竞赛 · AI 陪练</span><span class="live">● 公测进行中</span></div>
+
+  <div class="top">
+    <div>
+      <div class="wordmark">ARENA</div>
+      <div class="brand-sub">算法竞赛辅导智能体</div>
+    </div>
+    <div class="badge">真题题库<b>114+</b>道</div>
+  </div>
+
+  <h1 class="headline">刷题该有的，<span class="hl">一次给齐</span></h1>
+  <p class="subhead">从读题到 Accepted——五智能体陪练、双轨判题、算法可视化、社群互助，一个平台练通算法竞赛。</p>
+
+  <div class="mods">
+    <div class="mod">
+      <div class="mod-title"><span class="ic">⚖️</span>判题与编码<small>真跑真判，不是想象答案</small></div>
+      <div class="pills">
+        <span class="pill hot">双轨判题</span><span class="pill">真题真值校验</span><span class="pill">智能对拍抓反例</span>
+        <span class="pill hot">Python / C++ 真编译运行</span><span class="pill">自动调试定位 Bug</span><span class="pill">114 真题 + 自己出题</span><span class="pill">代码补全</span>
+      </div>
+    </div>
+    <div class="mod">
+      <div class="mod-title"><span class="ic">🧠</span>AI 辅导<small>五智能体协作</small></div>
+      <div class="pills">
+        <span class="pill">题目分析与规划</span><span class="pill hot">苏格拉底分层提示</span><span class="pill">导师自由对话</span>
+        <span class="pill">行内审阅 + 修订</span><span class="pill">深度解题推演</span>
+      </div>
+    </div>
+    <div class="mod">
+      <div class="mod-title"><span class="ic">🎬</span>学习可视化与成长<small>看得见的进步</small></div>
+      <div class="pills">
+        <span class="pill hot">9 种算法动画</span><span class="pill">刷题日历热力图</span><span class="pill">题型掌握度</span>
+        <span class="pill">能力画像 · 因材施教</span><span class="pill">每日 AI 学习日报</span><span class="pill">成就徽章 + 结业证书</span>
+      </div>
+    </div>
+    <div class="mod">
+      <div class="mod-title"><span class="ic">💬</span>社群与激励<small>不再一个人刷题</small></div>
+      <div class="pills">
+        <span class="pill">求助 / 题解 / 讨论 / 反馈</span><span class="pill hot">签到 · 答疑得积分</span><span class="pill">题解关联题目沉淀</span><span class="pill">双层内容审核</span>
+      </div>
+    </div>
+    <div class="mod">
+      <div class="mod-title"><span class="ic">✨</span>贴心体验<small>打开即用</small></div>
+      <div class="pills">
+        <span class="pill">中英双语</span><span class="pill">三档主题</span><span class="pill">新手引导</span><span class="pill">系统公告</span><span class="pill hot">免登录即用</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta">
+    <div class="cta-text">
+      <div class="k">打开网址，<em>免登录</em>就能开练</div>
+      <div class="u">cp-tutor-agent.onrender.com</div>
+      <div class="note">推荐使用电脑浏览器访问体验 · 移动端适配中</div>
+    </div>
+    </div>
+
+  <div class="foot">
+    <span>© 2026 ARENA · 算法竞赛辅导智能体</span>
+    <span class="gh"><b>GitHub</b>github.com/ProZhang-Gr/cp-tutor-agent</span>
+  </div>
+</div>
+</body>
+</html>
