@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """FastAPI 后端。
-
+ 
 提供 REST + SSE 流式接口，串联五大智能体、LangGraph 工作流、
 RAG 题库、代码沙箱与学习进度，并托管前端静态页面。
-
+ 
 启动：  python -m uvicorn app:app --reload --port 8000
 """
 import json
 import os
-
+ 
 from fastapi import Cookie, FastAPI, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
