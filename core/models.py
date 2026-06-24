@@ -70,6 +70,26 @@ class UserProblem(Base):
     created_at: Mapped[float] = mapped_column(Float, default=time.time, index=True)
 
 
+class StudyLog(Base):
+    """学习行为埋点（聚合，非键鼠记录）。
+
+    刻意只存「时长 + 计数」这类聚合学习行为，不存任何按键内容/鼠标轨迹，
+    既能刻画学习投入（专注时长、活跃度、人均每题用时），又不触碰隐私红线。
+    游客 user_id 为 NULL，登录用户按 uid 归属。
+    """
+    __tablename__ = "study_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True)
+    ts: Mapped[float] = mapped_column(Float, default=time.time, index=True)
+    problem_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    active_seconds: Mapped[int] = mapped_column(Integer, default=0)  # 专注（页面可见且有操作）时长
+    keystrokes: Mapped[int] = mapped_column(Integer, default=0)      # 编辑器击键次数（仅计数）
+    runs: Mapped[int] = mapped_column(Integer, default=0)            # 本段内点「运行」次数
+    submits: Mapped[int] = mapped_column(Integer, default=0)         # 本段内点「提交评测」次数
+
+
 class Post(Base):
     """社群帖子。username 冗余存一份便于展示（本应用无改名功能，安全）。"""
     __tablename__ = "posts"

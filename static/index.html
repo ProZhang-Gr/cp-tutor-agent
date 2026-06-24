@@ -25,16 +25,17 @@
     <div class="mark">/A</div>
     <div class="brand-txt">
       <h1>ARENA</h1>
-      <p>算法竞赛辅导智能体</p>
+      <p data-i18n="brand.sub">算法竞赛辅导智能体</p>
     </div>
   </div>
   <nav class="tabs">
-    <button class="tab active" data-view="workspace">[ 辅导工作台 ]</button>
-    <button class="tab" data-view="visualizer">[ 算法图解 ]</button>
-    <button class="tab" data-view="community">[ 社群 ]</button>
-    <button class="tab" data-view="dashboard">[ 学习仪表盘 ]</button>
+    <button class="tab active" data-view="workspace" data-i18n="tab.workspace">[ 辅导工作台 ]</button>
+    <button class="tab" data-view="visualizer" data-i18n="tab.visualizer">[ 算法图解 ]</button>
+    <button class="tab" data-view="community" data-i18n="tab.community">[ 社群 ]</button>
+    <button class="tab" data-view="dashboard" data-i18n="tab.dashboard">[ 学习仪表盘 ]</button>
   </nav>
-  <div class="status" id="conn-status"><span class="dot"></span> MODEL ONLINE</div>
+  <div class="status" id="conn-status"><span class="dot"></span> <span data-i18n="status.online">MODEL ONLINE</span></div>
+  <button class="lang-toggle" id="lang-toggle" data-i18n="lang.toggle" data-i18n-title="lang.toggle.title" title="Switch to English">EN</button>
   <div class="auth-area" id="auth-area"></div>
 </header>
 
@@ -45,26 +46,26 @@
     <!-- 左：题目与分析 -->
     <section class="col col-left reveal" id="col-left" style="--d:.05s">
       <div class="sec-head">
-        <span class="sec-no">01</span><h2>题目</h2>
+        <span class="sec-no">01</span><h2 data-i18n="ws.problem">题目</h2>
         <div class="pb-dropdown" id="pb-dropdown">
-          <button type="button" id="pb-toggle" class="pb-toggle" title="打开题库">
-            <span class="pb-toggle-ico">📚</span><span id="pb-current">题库</span>
+          <button type="button" id="pb-toggle" class="pb-toggle" data-i18n-title="ws.bank.title" title="打开题库">
+            <span class="pb-toggle-ico">📚</span><span id="pb-current" data-i18n="ws.bank">题库</span>
           </button>
         </div>
       </div>
-      <textarea id="problem-input" class="problem-input"
+      <textarea id="problem-input" class="problem-input" data-i18n-ph="ws.problem.ph"
         placeholder="粘贴题目描述（含输入/输出格式与样例），或点右上角「题库」选择。"></textarea>
       <div id="problem-display" class="problem-display hidden"></div>
-      <button id="btn-analyze" class="btn btn-primary btn-block">▶ 启动智能体分析</button>
-      <label class="deep-toggle"><input type="checkbox" id="deep-check"> 🧠 深度分析 <span class="pro-tag">PRO</span></label>
+      <button id="btn-analyze" class="btn btn-primary btn-block" data-i18n="ws.analyze">▶ 启动智能体分析</button>
+      <label class="deep-toggle"><input type="checkbox" id="deep-check"> <span data-i18n="ws.deep">🧠 深度分析</span> <span class="pro-tag">PRO</span></label>
 
       <div id="prob-solutions" class="prob-solutions hidden"></div>
 
       <div id="analysis-result" class="analysis hidden">
-        <div class="sec-head sub"><span class="sec-no">02</span><h2>题目剖析</h2></div>
+        <div class="sec-head sub"><span class="sec-no">02</span><h2 data-i18n="ws.dissect">题目剖析</h2></div>
         <div id="analysis-notice" class="analysis-notice hidden">
           <p id="analysis-notice-text"></p>
-          <button id="btn-ask-tutor" class="btn btn-accent btn-block">💬 让导师解答</button>
+          <button id="btn-ask-tutor" class="btn btn-accent btn-block" data-i18n="ws.askTutor">💬 让导师解答</button>
         </div>
         <div id="analysis-body">
           <div class="ana-head">
@@ -72,18 +73,18 @@
             <span id="ana-diff" class="badge badge-diff">—</span>
             <span id="ana-stars" class="stars"></span>
           </div>
-          <details class="ana-sec" open><summary>目标复杂度</summary><div id="ana-complexity" class="ana-sec-body mono">—</div></details>
-          <details class="ana-sec accent" open><summary>核心突破口</summary><div id="ana-insight" class="ana-sec-body">—</div></details>
-          <details id="ana-deepdive-wrap" class="ana-sec deep hidden" open><summary>🧠 解题推演 · PRO</summary><div id="ana-deepdive" class="ana-sec-body"></div></details>
-          <details class="ana-sec"><summary>易错点</summary><ul id="ana-pitfalls" class="ana-sec-body"></ul></details>
-          <details class="ana-sec"><summary>知识点</summary><div id="ana-knowledge" class="ana-sec-body chips"></div></details>
+          <details class="ana-sec" open><summary data-i18n="ws.complexity">目标复杂度</summary><div id="ana-complexity" class="ana-sec-body mono">—</div></details>
+          <details class="ana-sec accent" open><summary data-i18n="ws.insight">核心突破口</summary><div id="ana-insight" class="ana-sec-body">—</div></details>
+          <details id="ana-deepdive-wrap" class="ana-sec deep hidden" open><summary data-i18n="ws.deepdive">🧠 解题推演 · PRO</summary><div id="ana-deepdive" class="ana-sec-body"></div></details>
+          <details class="ana-sec"><summary data-i18n="ws.pitfalls">易错点</summary><ul id="ana-pitfalls" class="ana-sec-body"></ul></details>
+          <details class="ana-sec"><summary data-i18n="ws.knowledge">知识点</summary><div id="ana-knowledge" class="ana-sec-body chips"></div></details>
           <div id="ana-viz" class="ana-viz hidden"></div>
-          <details class="ana-sec"><summary>相似题 · 举一反三</summary><div id="ana-similar" class="ana-sec-body chips"></div></details>
+          <details class="ana-sec"><summary data-i18n="ws.similar">相似题 · 举一反三</summary><div id="ana-similar" class="ana-sec-body chips"></div></details>
         </div>
       </div>
 
       <div id="strategies" class="strategies hidden">
-        <div class="sec-head sub"><span class="sec-no">03</span><h2>策略谱系</h2></div>
+        <div class="sec-head sub"><span class="sec-no">03</span><h2 data-i18n="ws.strategies">策略谱系</h2></div>
         <div id="strategy-list"></div>
         <div id="strategy-path" class="learn-path"></div>
       </div>
@@ -95,14 +96,14 @@
     <!-- 中：代码与判题 -->
     <section class="col col-center reveal" style="--d:.12s">
       <div class="editor-bar">
-        <span class="editor-title">⌗ 代码工作区</span>
+        <span class="editor-title" data-i18n="ed.title">⌗ 代码工作区</span>
         <div class="editor-actions">
           <select id="lang-select" class="mini-select">
             <option value="python">Python</option>
           </select>
-          <button id="btn-copy" class="btn btn-ghost" title="复制代码">⎘ 复制</button>
-          <button id="btn-run" class="btn btn-ghost" title="运行（Ctrl+Enter）">▷ 运行</button>
-          <button id="btn-submit" class="btn btn-primary" title="提交评测（Ctrl+S）">⏍ 提交评测</button>
+          <button id="btn-copy" class="btn btn-ghost" data-i18n="ed.copy" data-i18n-title="ed.copy.title" title="复制代码">⎘ 复制</button>
+          <button id="btn-run" class="btn btn-ghost" data-i18n="ed.run" data-i18n-title="ed.run.title" title="运行（Ctrl+Enter）">▷ 运行</button>
+          <button id="btn-submit" class="btn btn-primary" data-i18n="ed.submit" data-i18n-title="ed.submit.title" title="提交评测（Ctrl+S）">⏍ 提交评测</button>
         </div>
       </div>
       <div id="editor" class="editor"></div>
@@ -110,12 +111,12 @@
       <div class="io-panel" id="io-panel">
         <div class="io-resize" id="io-resize" title="拖动调整结果区高度"></div>
         <div class="io-tabs">
-          <button class="io-tab active" data-io="custom">自定义输入</button>
-          <button class="io-tab" data-io="result">判题结果</button>
-          <button class="io-tab" data-io="history">提交记录</button>
+          <button class="io-tab active" data-io="custom" data-i18n="io.custom">自定义输入</button>
+          <button class="io-tab" data-io="result" data-i18n="io.result">判题结果</button>
+          <button class="io-tab" data-io="history" data-i18n="io.history">提交记录</button>
         </div>
         <div id="io-custom" class="io-pane active">
-          <textarea id="custom-input" class="custom-input" placeholder="测试数据 → 点「运行」查看输出"></textarea>
+          <textarea id="custom-input" class="custom-input" data-i18n-ph="io.custom.ph" placeholder="测试数据 → 点「运行」查看输出"></textarea>
           <pre id="run-output" class="run-output"></pre>
         </div>
         <div id="io-result" class="io-pane">
@@ -134,9 +135,9 @@
     <!-- 右：智能体团队 + 导师 -->
     <section class="col col-right reveal" id="col-right" style="--d:.19s">
       <div class="team" id="team">
-        <button class="team-strip" id="team-strip" title="点击展开/收起智能体职责">
+        <button class="team-strip" id="team-strip" data-i18n-title="team.strip.title" title="点击展开/收起智能体职责">
           <span class="sec-no">04</span>
-          <span class="team-title">智能体团队</span>
+          <span class="team-title" data-i18n="team.title">智能体团队</span>
           <span class="team-dots" id="team-dots"></span>
           <span class="team-chevron" id="team-chevron">▾</span>
         </button>
@@ -146,31 +147,31 @@
 
       <section class="panel" id="panel-tutor">
         <button class="panel-head">
-          <span class="sec-no">05</span><h2>苏格拉底导师</h2>
+          <span class="sec-no">05</span><h2 data-i18n="tutor.title">苏格拉底导师</h2>
           <span class="hint-level">LV <span id="hint-level-num">0</span>/4</span>
           <span class="panel-chevron">▾</span>
         </button>
         <div class="panel-body">
           <div id="adaptive-note" class="adaptive-note hidden"></div>
-          <button id="btn-hint" class="btn btn-accent btn-block">💡 请求下一层提示</button>
+          <button id="btn-hint" class="btn btn-accent btn-block" data-i18n="tutor.hint">💡 请求下一层提示</button>
           <div id="hint-box" class="hint-box"></div>
         </div>
       </section>
 
       <section class="panel collapsed" id="panel-review">
         <button class="panel-head">
-          <span class="sec-no">06</span><h2>导师审阅</h2>
+          <span class="sec-no">06</span><h2 data-i18n="review.title">导师审阅</h2>
           <span class="panel-chevron">▾</span>
         </button>
         <div class="panel-body">
-          <button id="btn-review" class="btn btn-review btn-block" title="导师通读你的代码，在出问题的行打批注，并可给出修订版">🔎 请导师审阅并给修改建议</button>
+          <button id="btn-review" class="btn btn-review btn-block" data-i18n="review.btn" data-i18n-title="review.btn.title" title="导师通读你的代码，在出问题的行打批注，并可给出修订版">🔎 请导师审阅并给修改建议</button>
           <div id="review-panel" class="review-panel hidden"></div>
         </div>
       </section>
 
       <section class="panel" id="panel-chat">
         <button class="panel-head">
-          <span class="sec-no">07</span><h2>导师对话</h2>
+          <span class="sec-no">07</span><h2 data-i18n="chat.title">导师对话</h2>
           <span class="panel-chevron">▾</span>
         </button>
         <div class="panel-body">
@@ -181,8 +182,8 @@
               <button id="quote-clear" class="quote-x" title="取消引用">✕</button>
             </div>
             <div class="chat-input-bar">
-              <button id="btn-quote" class="btn btn-ghost btn-quote" title="引用编辑器中选中的代码">⌗</button>
-              <input id="chat-input" class="chat-input" placeholder="向导师提问，他能看到你的代码…">
+              <button id="btn-quote" class="btn btn-ghost btn-quote" data-i18n-title="chat.quote.title" title="引用编辑器中选中的代码">⌗</button>
+              <input id="chat-input" class="chat-input" data-i18n-ph="chat.ph" placeholder="向导师提问，他能看到你的代码…">
               <button id="btn-chat" class="btn btn-primary">↵</button>
             </div>
           </div>
@@ -196,27 +197,52 @@
 <!-- ===================== 仪表盘 ===================== -->
 <main id="view-dashboard" class="view">
   <div class="dashboard">
-    <div class="dash-title"><span class="sec-no">◆</span><h2>学习数据 · LEARNING TELEMETRY</h2></div>
+    <div class="dash-title"><span class="sec-no">◆</span><h2 data-i18n="dash.title">学习数据 · LEARNING TELEMETRY</h2></div>
+
+    <!-- 用户画像 · 因材施教 -->
+    <div class="profile-card" id="profile-card">
+      <div class="pf-head"><h3 data-i18n="profile.title">用户画像 · 因材施教</h3></div>
+      <div id="profile-body" class="pf-body"></div>
+    </div>
+
     <div class="report-card">
       <div class="report-head">
-        <h3>🧾 AI 学习日报 <span class="pro-tag">PRO</span></h3>
+        <h3><span data-i18n="dash.report">🧾 AI 学习日报</span> <span class="pro-tag">PRO</span></h3>
         <div class="report-actions">
-          <button id="btn-gen-report" class="btn btn-primary">生成今日报告</button>
-          <button id="btn-share-report" class="btn btn-accent hidden">📤 生成分享图</button>
-          <button id="btn-dl-report" class="btn btn-ghost hidden">⬇ 下载 PDF</button>
+          <button id="btn-gen-report" class="btn btn-primary" data-i18n="dash.genReport">生成今日报告</button>
+          <button id="btn-share-report" class="btn btn-accent hidden" data-i18n="dash.shareImg">📤 生成分享图</button>
+          <button id="btn-dl-report" class="btn btn-ghost hidden" data-i18n="dash.dlPdf">⬇ 下载 PDF</button>
         </div>
       </div>
-      <div id="report-body" class="report-body"><span class="empty-hint">点「生成今日报告」，AI 全方位分析你今天的学习并可导出 PDF（Pro）</span></div>
+      <div id="report-body" class="report-body"><span class="empty-hint" data-i18n="dash.report.empty">点「生成今日报告」，AI 全方位分析你今天的学习并可导出 PDF（Pro）</span></div>
     </div>
     <div class="stat-cards">
-      <div class="stat-card"><div class="stat-num" id="st-total">0</div><div class="stat-label">总提交</div></div>
-      <div class="stat-card"><div class="stat-num" id="st-solved">0</div><div class="stat-label">已攻克</div></div>
-      <div class="stat-card"><div class="stat-num" id="st-rate">0%</div><div class="stat-label">通过率</div></div>
-      <div class="stat-card"><div class="stat-num" id="st-avg">0</div><div class="stat-label">平均分</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-total">0</div><div class="stat-label" data-i18n="dash.st.total">总提交</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-solved">0</div><div class="stat-label" data-i18n="dash.st.solved">已攻克</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-rate">0%</div><div class="stat-label" data-i18n="dash.st.rate">通过率</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-avg">0</div><div class="stat-label" data-i18n="dash.st.avg">平均分</div></div>
+    </div>
+
+    <!-- 学习投入 · 行为分析（聚合时长与计数，非键鼠记录） -->
+    <div class="engage-card" id="engage-card">
+      <div class="eg-head"><h3 data-i18n="engage.title">学习投入 · 行为分析</h3><span class="eg-sub" data-i18n="engage.sub">只统计专注时长与操作计数，不记录任何按键内容或鼠标轨迹</span></div>
+      <div class="eg-grid">
+        <div class="eg-cell"><div class="eg-num" id="eg-today">0</div><div class="eg-label" data-i18n="engage.todayMin">今日专注(分)</div></div>
+        <div class="eg-cell"><div class="eg-num" id="eg-total">0</div><div class="eg-label" data-i18n="engage.totalMin">累计专注(分)</div></div>
+        <div class="eg-cell"><div class="eg-num" id="eg-keys">0</div><div class="eg-label" data-i18n="engage.keys">累计击键</div></div>
+        <div class="eg-cell"><div class="eg-num" id="eg-persub">0</div><div class="eg-label" data-i18n="engage.perSubmit">每次提交均用时(分)</div></div>
+      </div>
+    </div>
+
+    <!-- 成就 · 证书 -->
+    <div class="ach-card" id="ach-card">
+      <div class="ach-head"><h3 data-i18n="ach.title">成就 · 证书</h3><span class="ach-sub" data-i18n="ach.sub">刷题里程碑会点亮徽章，达成后可生成结业证书</span></div>
+      <div id="ach-badges" class="ach-badges"></div>
+      <button id="btn-gen-cert" class="btn btn-accent ach-cert-btn" data-i18n="ach.cert">🎓 生成结业证书</button>
     </div>
     <!-- 刷题日历：GitHub 风格贡献热力图 -->
     <div class="cal-card">
-      <div class="cal-head"><h3>刷题日历</h3><span class="cal-sub" id="cal-sub">近一年提交活跃度</span></div>
+      <div class="cal-head"><h3 data-i18n="dash.cal">刷题日历</h3><span class="cal-sub" id="cal-sub" data-i18n="dash.cal.sub">近一年提交活跃度</span></div>
       <div class="cal-scroll">
         <div class="cal-table">
           <div class="cal-corner"></div>
@@ -226,18 +252,18 @@
         </div>
       </div>
       <div class="cal-foot">
-        <span class="cal-legend">少
+        <span class="cal-legend"><span data-i18n="dash.cal.less">少</span>
           <i class="cal-cell l0"></i><i class="cal-cell l1"></i><i class="cal-cell l2"></i><i class="cal-cell l3"></i><i class="cal-cell l4"></i>
-        多</span>
+        <span data-i18n="dash.cal.more">多</span></span>
       </div>
     </div>
     <div class="charts">
-      <div class="chart-card"><h3>判题结果分布</h3><canvas id="chart-error"></canvas></div>
-      <div class="weak-card"><h3>薄弱题型</h3><div id="weak-list"></div></div>
+      <div class="chart-card"><h3 data-i18n="dash.errDist">判题结果分布</h3><canvas id="chart-error"></canvas></div>
+      <div class="weak-card"><h3 data-i18n="dash.weak">薄弱题型</h3><div id="weak-list"></div></div>
     </div>
     <div class="recent-card recent-full">
-      <h3>近期提交</h3>
-      <table class="recent-table"><thead><tr><th>题目</th><th>题型</th><th>结果</th><th>得分</th><th>时间</th></tr></thead>
+      <h3 data-i18n="dash.recent">近期提交</h3>
+      <table class="recent-table"><thead><tr><th data-i18n="dash.col.problem">题目</th><th data-i18n="dash.col.type">题型</th><th data-i18n="dash.col.result">结果</th><th data-i18n="dash.col.score">得分</th><th data-i18n="dash.col.time">时间</th></tr></thead>
       <tbody id="recent-body"></tbody></table>
     </div>
   </div>
@@ -247,15 +273,15 @@
 <main id="view-visualizer" class="view">
   <div class="vz-wrap">
     <aside class="vz-catalog">
-      <div class="vz-catalog-head"><span class="sec-no">◇</span><h2>算法图解</h2></div>
-      <p class="vz-catalog-sub">逐帧看清每一步在做什么</p>
+      <div class="vz-catalog-head"><span class="sec-no">◇</span><h2 data-i18n="vz.title">算法图解</h2></div>
+      <p class="vz-catalog-sub" data-i18n="vz.sub">逐帧看清每一步在做什么</p>
       <div id="vz-list" class="vz-list"></div>
     </aside>
 
     <section class="vz-main">
       <div class="vz-head">
-        <h2 id="vz-title">选择一个算法</h2>
-        <p id="vz-desc">从左侧挑一个算法，看它一步步执行。</p>
+        <h2 id="vz-title" data-i18n="vz.pickTitle">选择一个算法</h2>
+        <p id="vz-desc" data-i18n="vz.pickDesc">从左侧挑一个算法，看它一步步执行。</p>
       </div>
 
       <div id="vz-stage" class="vz-stage"></div>
@@ -263,10 +289,10 @@
       <div id="vz-narr" class="vz-narr"></div>
 
       <div class="vz-controls">
-        <button id="vz-restart" class="vz-ctl" title="回到开头">⏮</button>
-        <button id="vz-prev" class="vz-ctl" title="上一步">◀</button>
-        <button id="vz-play" class="vz-ctl vz-ctl-main">▶ 播放</button>
-        <button id="vz-next" class="vz-ctl" title="下一步">▶</button>
+        <button id="vz-restart" class="vz-ctl" data-i18n-title="vz.restart" title="回到开头">⏮</button>
+        <button id="vz-prev" class="vz-ctl" data-i18n-title="vz.prev" title="上一步">◀</button>
+        <button id="vz-play" class="vz-ctl vz-ctl-main" data-i18n="vz.play">▶ 播放</button>
+        <button id="vz-next" class="vz-ctl" data-i18n-title="vz.next" title="下一步">▶</button>
         <input id="vz-progress" class="vz-progress" type="range" min="0" max="0" value="0">
         <select id="vz-speed" class="mini-select vz-speed">
           <option value="1400">0.5×</option>
@@ -277,15 +303,15 @@
       </div>
 
       <div id="vz-input-row" class="vz-input-row hidden">
-        <span class="vz-input-label">输入数据</span>
+        <span class="vz-input-label" data-i18n="vz.input">输入数据</span>
         <input id="vz-input" class="vz-input" autocomplete="off">
-        <button id="vz-apply" class="btn btn-ghost vz-mini-btn">应用</button>
-        <button id="vz-random" class="btn btn-ghost vz-mini-btn">🎲 随机</button>
+        <button id="vz-apply" class="btn btn-ghost vz-mini-btn" data-i18n="vz.apply">应用</button>
+        <button id="vz-random" class="btn btn-ghost vz-mini-btn" data-i18n="vz.random">🎲 随机</button>
       </div>
     </section>
 
     <aside class="vz-code-side">
-      <div class="vz-code-head">伪代码 · 高亮为当前执行行</div>
+      <div class="vz-code-head" data-i18n="vz.code">伪代码 · 高亮为当前执行行</div>
       <pre id="vz-code" class="vz-code"></pre>
       <div id="vz-cx" class="vz-cx"></div>
     </aside>
@@ -297,24 +323,24 @@
   <div class="cm-wrap">
     <div class="cm-main">
       <div class="cm-head">
-        <div class="cm-title"><span class="sec-no">❖</span><h2>社群讨论区</h2></div>
-        <p class="cm-sub">难题一起啃 · 思路互相点 · 发帖前会经 AI 审核护栏</p>
+        <div class="cm-title"><span class="sec-no">❖</span><h2 data-i18n="cm.title">社群讨论区</h2></div>
+        <p class="cm-sub" data-i18n="cm.sub">难题一起啃 · 思路互相点 · 发帖前会经 AI 审核护栏</p>
       </div>
       <div class="cm-toolbar">
         <div class="cm-tags" id="cm-tags">
-          <button type="button" class="cm-tag active" data-tag="">全部</button>
-          <button type="button" class="cm-tag" data-tag="求助">求助</button>
-          <button type="button" class="cm-tag" data-tag="题解">题解</button>
-          <button type="button" class="cm-tag" data-tag="讨论">讨论</button>
-          <button type="button" class="cm-tag" data-tag="反馈">反馈</button>
+          <button type="button" class="cm-tag active" data-tag="" data-i18n="cm.all">全部</button>
+          <button type="button" class="cm-tag" data-tag="求助" data-i18n="cm.ask">求助</button>
+          <button type="button" class="cm-tag" data-tag="题解" data-i18n="cm.solu">题解</button>
+          <button type="button" class="cm-tag" data-tag="讨论" data-i18n="cm.disc">讨论</button>
+          <button type="button" class="cm-tag" data-tag="反馈" data-i18n="cm.fb">反馈</button>
         </div>
         <div class="cm-toolbar-right">
           <div class="cm-sort" id="cm-sort">
-            <button type="button" class="cm-sort-btn active" data-sort="hot">🔥 最热</button>
-            <button type="button" class="cm-sort-btn" data-sort="new">🕒 最新</button>
+            <button type="button" class="cm-sort-btn active" data-sort="hot" data-i18n="cm.hot">🔥 最热</button>
+            <button type="button" class="cm-sort-btn" data-sort="new" data-i18n="cm.new">🕒 最新</button>
           </div>
-          <input id="cm-search" class="cm-search" type="search" placeholder="🔍 搜索标题 / 内容 / 作者" autocomplete="off">
-          <button id="cm-new-btn" class="btn btn-primary cm-new-btn">✎ 发帖</button>
+          <input id="cm-search" class="cm-search" type="search" data-i18n-ph="cm.search.ph" placeholder="🔍 搜索标题 / 内容 / 作者" autocomplete="off">
+          <button id="cm-new-btn" class="btn btn-primary cm-new-btn" data-i18n="cm.newPost">✎ 发帖</button>
         </div>
       </div>
       <div id="cm-list" class="cm-list"></div>
@@ -334,15 +360,15 @@
   <div class="modal">
     <button class="modal-close" id="auth-close">×</button>
     <div class="modal-tabs">
-      <button class="modal-tab active" data-auth="login">登录</button>
-      <button class="modal-tab" data-auth="register">注册</button>
+      <button class="modal-tab active" data-auth="login" data-i18n="auth.login">登录</button>
+      <button class="modal-tab" data-auth="register" data-i18n="auth.register">注册</button>
     </div>
     <div id="auth-context" class="auth-context hidden"></div>
-    <input id="auth-username" class="modal-input" placeholder="用户名" autocomplete="username">
-    <input id="auth-password" class="modal-input" type="password" placeholder="密码（至少 6 位）" autocomplete="current-password">
+    <input id="auth-username" class="modal-input" data-i18n-ph="auth.username.ph" placeholder="用户名" autocomplete="username">
+    <input id="auth-password" class="modal-input" type="password" data-i18n-ph="auth.password.ph" placeholder="密码（至少 8 位）" autocomplete="current-password">
     <div class="auth-err" id="auth-err"></div>
-    <button class="btn btn-primary btn-block" id="auth-submit">登录</button>
-    <div class="auth-hint">游客可免费使用判题、智能体分析、导师审阅与算法图解。登录后记录学习历史、按画像<b>因材施教</b>，并可看广告或充值解锁<b>苏格拉底导师 / 导师对话 / 深度分析</b>。</div>
+    <button class="btn btn-primary btn-block" id="auth-submit" data-i18n="auth.login">登录</button>
+    <div class="auth-hint" data-i18n="auth.hint">游客可免费使用判题、智能体分析、导师审阅与算法图解。登录后记录学习历史、按画像因材施教，并可看广告或充值解锁苏格拉底导师 / 导师对话 / 深度分析。</div>
   </div>
 </div>
 
@@ -350,14 +376,14 @@
 <div class="modal-overlay hidden" id="recharge-modal">
   <div class="modal">
     <button class="modal-close" id="recharge-close">×</button>
-    <div class="modal-tabs"><button class="modal-tab active">充值算力点</button></div>
+    <div class="modal-tabs"><button class="modal-tab active" data-i18n="rc.title">充值算力点</button></div>
     <div class="recharge-pkgs" id="recharge-pkgs">
-      <button class="pkg" data-yuan="6">¥6 → 60 点</button>
-      <button class="pkg" data-yuan="30">¥30 → 300 点</button>
-      <button class="pkg" data-yuan="98">¥98 → 980 点</button>
+      <button class="pkg" data-yuan="6">¥6 → 60</button>
+      <button class="pkg" data-yuan="30">¥30 → 300</button>
+      <button class="pkg" data-yuan="98">¥98 → 980</button>
     </div>
-    <div class="auth-hint">演示用模拟充值，不接真实支付。Pro 不受每日额度限制，每次调用消耗 1 点。</div>
-    <button class="recharge-ad-link" id="recharge-ad-link">或 · 看广告免费得算力点</button>
+    <div class="auth-hint" data-i18n="rc.hint">演示用模拟充值，不接真实支付。Pro 不受每日额度限制，每次调用消耗 1 点。</div>
+    <button class="recharge-ad-link" id="recharge-ad-link" data-i18n="rc.adLink">或 · 看广告免费得算力点</button>
   </div>
 </div>
 
@@ -365,11 +391,11 @@
 <div class="modal-overlay hidden" id="unlock-modal">
   <div class="modal">
     <button class="modal-close" id="unlock-close">×</button>
-    <h3 class="unlock-title"><span id="unlock-feature">该功能</span> 需要算力点</h3>
-    <p class="unlock-sub">导师审阅、普通智能体分析对所有人免费；<b>苏格拉底导师、导师对话、深度分析</b>是 Pro 能力，每次消耗 1 算力点。</p>
+    <h3 class="unlock-title"><span id="unlock-feature">该功能</span> <span data-i18n="unlock.need">需要算力点</span></h3>
+    <p class="unlock-sub" data-i18n="unlock.sub">导师审阅、普通智能体分析对所有人免费；苏格拉底导师、导师对话、深度分析是 Pro 能力，每次消耗 1 算力点。</p>
     <div class="unlock-actions">
-      <button class="btn btn-accent btn-block" id="unlock-ad">看广告免费得 <b id="unlock-ad-pts">5</b> 点</button>
-      <button class="btn btn-primary btn-block" id="unlock-recharge">直接充值开通 Pro</button>
+      <button class="btn btn-accent btn-block" id="unlock-ad"><span data-i18n="unlock.ad">看广告免费得</span> <b id="unlock-ad-pts">5</b> <span data-i18n="unlock.adUnit">点</span></button>
+      <button class="btn btn-primary btn-block" id="unlock-recharge" data-i18n="unlock.recharge">直接充值开通 Pro</button>
     </div>
   </div>
 </div>
@@ -378,18 +404,18 @@
 <div class="modal-overlay hidden" id="ad-modal">
   <div class="modal modal-ad">
     <button class="modal-close hidden" id="ad-close">×</button>
-    <div class="ad-tag">赞助内容 · 模拟激励</div>
+    <div class="ad-tag" data-i18n="ad.tag">赞助内容 · 模拟激励</div>
     <div class="ad-card">
       <div class="ad-mark">/A</div>
       <div class="ad-text">
-        <h3 class="ad-copy">让每一次刷题，<br>都有人陪你复盘</h3>
-        <p class="ad-sub">ARENA · 算法竞赛辅导智能体</p>
+        <h3 class="ad-copy" data-i18n="ad.copy" data-i18n-html>让每一次刷题，<br>都有人陪你复盘</h3>
+        <p class="ad-sub" data-i18n="ad.sub">ARENA · 算法竞赛辅导智能体</p>
       </div>
     </div>
     <div class="ad-progress"><i id="ad-progress-bar"></i></div>
     <div class="ad-foot">
       <span class="ad-hint">广告 <b id="ad-count">—</b> · 看完即可领取算力点（演示用，不接真实广告）</span>
-      <button class="btn btn-primary" id="ad-claim" disabled>领取奖励</button>
+      <button class="btn btn-primary" id="ad-claim" data-i18n="ad.claim" disabled>领取奖励</button>
     </div>
   </div>
 </div>
@@ -398,23 +424,23 @@
 <div id="pb-overlay" class="pb-overlay"></div>
 <aside id="pb-drawer" class="pb-drawer">
   <div class="pb-drawer-head">
-    <h3>题库</h3>
+    <h3 data-i18n="pb.title">题库</h3>
     <span class="pb-count" id="pb-count"></span>
     <button id="pb-close" class="pb-drawer-close" title="关闭">×</button>
   </div>
   <div class="pb-search-row">
-    <input id="pb-search" class="pb-search" placeholder="🔍 搜索题名 / 知识点…" autocomplete="off">
+    <input id="pb-search" class="pb-search" data-i18n-ph="pb.search.ph" placeholder="🔍 搜索题名 / 知识点…" autocomplete="off">
   </div>
   <div class="pb-filters" id="pb-filters">
-    <button type="button" class="pb-chip active" data-diff="">全部</button>
-    <button type="button" class="pb-chip" data-diff="入门">入门</button>
-    <button type="button" class="pb-chip" data-diff="简单">简单</button>
-    <button type="button" class="pb-chip" data-diff="中等">中等</button>
-    <button type="button" class="pb-chip" data-diff="困难">困难</button>
-    <button type="button" class="pb-chip pb-chip-ac" data-ac="1">只看未过</button>
+    <button type="button" class="pb-chip active" data-diff="" data-i18n="pb.all">全部</button>
+    <button type="button" class="pb-chip" data-diff="入门" data-i18n="pb.intro">入门</button>
+    <button type="button" class="pb-chip" data-diff="简单" data-i18n="pb.easy">简单</button>
+    <button type="button" class="pb-chip" data-diff="中等" data-i18n="pb.mid">中等</button>
+    <button type="button" class="pb-chip" data-diff="困难" data-i18n="pb.hard">困难</button>
+    <button type="button" class="pb-chip pb-chip-ac" data-ac="1" data-i18n="pb.todo">只看未过</button>
   </div>
   <div id="pb-progress" class="pb-progress"></div>
-  <button id="pb-paste" class="pb-paste">✎ 粘贴自己的题目</button>
+  <button id="pb-paste" class="pb-paste" data-i18n="pb.paste">✎ 粘贴自己的题目</button>
   <div id="pb-list" class="pb-list"></div>
 </aside>
 
@@ -428,8 +454,8 @@
     </div>
     <div id="diff-editor" class="diff-editor"></div>
     <div class="diff-actions">
-      <button class="btn btn-ghost" id="diff-reject">✗ 不采用</button>
-      <button class="btn btn-primary" id="diff-apply">✓ 应用到编辑器（可 Ctrl+Z 撤销）</button>
+      <button class="btn btn-ghost" id="diff-reject" data-i18n="diff.reject">✗ 不采用</button>
+      <button class="btn btn-primary" id="diff-apply" data-i18n="diff.apply">✓ 应用到编辑器（可 Ctrl+Z 撤销）</button>
     </div>
   </div>
 </div>
@@ -438,13 +464,26 @@
 <div class="modal-overlay hidden" id="share-modal">
   <div class="modal modal-share">
     <button class="modal-close" id="share-close">×</button>
-    <h3 class="share-title">📤 分享学习卡片</h3>
+    <h3 class="share-title" data-i18n="share.title">📤 分享学习卡片</h3>
     <div class="share-canvas-wrap"><canvas id="share-canvas"></canvas></div>
     <div class="share-actions">
-      <button class="btn btn-ghost" id="share-copy">⎘ 复制图片</button>
-      <button class="btn btn-primary" id="share-download">⬇ 保存图片</button>
+      <button class="btn btn-ghost" id="share-copy" data-i18n="share.copy">⎘ 复制图片</button>
+      <button class="btn btn-primary" id="share-download" data-i18n="share.download">⬇ 保存图片</button>
     </div>
-    <p class="share-hint">保存后可直接发到微信 / QQ / 朋友圈 — 平台无关，无需任何授权</p>
+    <p class="share-hint" data-i18n="share.hint">保存后可直接发到微信 / QQ / 朋友圈 — 平台无关，无需任何授权</p>
+  </div>
+</div>
+
+<!-- 结业证书预览弹窗（客户端 Canvas 生成，带二维码） -->
+<div class="modal-overlay hidden" id="cert-modal">
+  <div class="modal modal-share">
+    <button class="modal-close" id="cert-close">×</button>
+    <h3 class="share-title" data-i18n="ach.cert">🎓 生成结业证书</h3>
+    <div class="share-canvas-wrap"><canvas id="cert-canvas"></canvas></div>
+    <div class="share-actions">
+      <button class="btn btn-ghost" id="cert-copy" data-i18n="share.copy">⎘ 复制图片</button>
+      <button class="btn btn-primary" id="cert-download" data-i18n="share.download">⬇ 保存图片</button>
+    </div>
   </div>
 </div>
 
@@ -458,6 +497,8 @@
      否则其 UMD 包装会走 define() 分支而不挂到 window.qrcode） -->
 <script src="/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+<!-- i18n 须在 app.js 之前：app.js 启动即渲染动态界面，需要 window.t 可用 -->
+<script src="/i18n.js"></script>
 <script src="/app.js"></script>
 <script src="/viz.js"></script>
 <script src="/community.js"></script>

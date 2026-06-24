@@ -15,7 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from config import settings
-from core import agents, auth, billing, community, guard, profile, progress, report, sandbox
+from core import (agents, auth, billing, community, guard, profile, progress,
+                  report, sandbox, telemetry)
 from core.llm import get_llm
 from core.rag import get_bank
 from core.debugger import run_debug_stream
@@ -122,6 +123,26 @@ def _require_pro(uid):
              "message": "该功能需算力点。看广告免费得点，或充值开通 Pro。"},
             status_code=402)
     return None
+
+
+def _reward_community(request, uid, kind):
+    """发帖 / 答疑后发放算力点激励，按日限次防刷。kind ∈ {'post','reply'}。
+
+    用「答疑得点」把社群从单纯讨论区变成有正反馈的互助生态：你帮别人，
+    平台用虚拟币回报你。返回本次实际发放的点数（达每日上限则为 0）。
+    """
+    if uid is None:
+        return 0
+    if kind == "post":
+        cap, pts, ep = settings.POST_REWARD_DAILY, settings.POST_REWARD_POINTS, "reward_post"
+    else:
+        cap, pts, ep = settings.REPLY_REWARD_DAILY, settings.REPLY_REWARD_POINTS, "reward_reply"
+    if guard.count_endpoint_today(uid, ep) >= cap:
+        return 0
+    if billing.grant(uid, pts) is None:
+        return 0
+    guard.log_event(uid, _ip(request), ep)
+    return pts
 
 
 # ------------------------- 请求模型 -------------------------
@@ -236,7 +257,9 @@ def me(arena_session: str = Cookie(default=None)):
         return {"user": None, "profile": profile.build_profile(None), "billing": billing.get_status(None)}
     return {"user": {"id": user["id"], "username": user["username"]},
             "profile": profile.build_profile(uid),
-            "billing": billing.get_status(uid)}
+            "billing": billing.get_status(uid),
+            "checkin": {"today": guard.count_endpoint_today(uid, "checkin") > 0,
+                        "points": settings.CHECKIN_POINTS}}
 
 
 class RechargeReq(BaseModel):
@@ -276,6 +299,47 @@ def ad_reward(request: Request, arena_session: str = Cookie(default=None)):
     guard.log_event(uid, _ip(request), "ad_reward")
     return {"credits": bal, "gained": settings.AD_REWARD_POINTS,
             "remaining_today": max(0, settings.AD_DAILY_LIMIT - used - 1)}
+
+
+# ------------------------- 每日签到（平台内激励） -------------------------
+@app.post("/api/checkin")
+def checkin(request: Request, arena_session: str = Cookie(default=None)):
+    """每日签到发放算力点。需登录，每日仅一次（按审计端点计数判定）。"""
+    uid = _uid(arena_session)
+    if uid is None:
+        return JSONResponse({"error": "请先登录再签到"}, status_code=401)
+    if guard.count_endpoint_today(uid, "checkin") > 0:
+        return JSONResponse({"error": "今天已经签到过了，明天再来～"}, status_code=409)
+    bal = billing.grant(uid, settings.CHECKIN_POINTS)
+    if bal is None:
+        return JSONResponse({"error": "签到失败，请重试"}, status_code=400)
+    guard.log_event(uid, _ip(request), "checkin")
+    return {"credits": bal, "gained": settings.CHECKIN_POINTS}
+
+
+# ------------------------- 学习行为埋点（聚合，非键鼠记录） -------------------------
+class TelemetryReq(BaseModel):
+    problem_id: str = ""
+    active_seconds: int = 0
+    keystrokes: int = 0
+    runs: int = 0
+    submits: int = 0
+
+
+@app.post("/api/telemetry")
+def telemetry_ingest(req: TelemetryReq, request: Request, arena_session: str = Cookie(default=None)):
+    """接收聚合学习行为（时长 + 计数）。只限流、不计 LLM 配额；全 0 段静默忽略。"""
+    ok, msg = guard.rate_limit_only(_ip(request))
+    if not ok:
+        return JSONResponse({"error": msg}, status_code=429)
+    saved = telemetry.record(_uid(arena_session), req.problem_id,
+                             req.active_seconds, req.keystrokes, req.runs, req.submits)
+    return {"ok": True, "saved": saved}
+
+
+@app.get("/api/telemetry/summary")
+def telemetry_summary(arena_session: str = Cookie(default=None)):
+    return telemetry.summary(_uid(arena_session))
 
 
 # ------------------------- 题库 -------------------------
@@ -613,7 +677,8 @@ def community_create(req: PostReq, request: Request, arena_session: str = Cookie
                                       req.problem_id, req.problem_title)
     if err:
         return JSONResponse({"error": err}, status_code=400)
-    return {"post": post}
+    reward = _reward_community(request, uid, "post")
+    return {"post": post, "reward": reward}
 
 
 @app.post("/api/community/posts/{pid}/reply")
@@ -628,7 +693,8 @@ def community_reply(pid: int, req: ReplyReq, request: Request, arena_session: st
     reply, err = community.add_reply(uid, user["username"] if user else "用户", pid, req.body)
     if err:
         return JSONResponse({"error": err}, status_code=400)
-    return {"reply": reply}
+    reward = _reward_community(request, uid, "reply")
+    return {"reply": reply, "reward": reward}
 
 
 @app.post("/api/community/posts/{pid}/like")

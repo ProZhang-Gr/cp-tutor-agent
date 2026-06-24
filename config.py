@@ -92,5 +92,16 @@ class Settings:
     AD_REWARD_POINTS = 5       # 每看完一次广告发放的算力点
     AD_DAILY_LIMIT = 5         # 每用户每日看广告得点次数上限
 
+    # 平台内激励闭环（复用 billing 算力点；皆按日限次防刷）
+    CHECKIN_POINTS = 5         # 每日签到发放算力点（每日 1 次）
+    POST_REWARD_POINTS = 3     # 发帖（题解/讨论/求助/反馈）奖励算力点
+    POST_REWARD_DAILY = 3      # 每日可获发帖奖励的次数上限
+    REPLY_REWARD_POINTS = 2    # 回帖答疑奖励算力点
+    REPLY_REWARD_DAILY = 5     # 每日可获回帖奖励的次数上限
+
+    # 学习行为埋点（聚合，非键鼠记录）：单次上报的合理上界，越界即截断防刷
+    TELEMETRY_MAX_SECONDS = 7200      # 单次上报有效学习时长上限（2 小时）
+    TELEMETRY_MAX_KEYSTROKES = 100000 # 单次上报按键计数上限（仅计数，不记内容）
+
 
 settings = Settings()
