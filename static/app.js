@@ -1768,6 +1768,32 @@ function openAuth(mode, context) {
   $("#auth-username").focus();
 }
 function closeAuth() { $("#auth-modal").classList.add("hidden"); authContext = ""; }
+function openResetModal() {
+  closeAuth();
+  $("#reset-err").textContent = "";
+  $("#reset-username").value = $("#auth-username").value.trim();   // 带上已填的用户名
+  $("#reset-modal").classList.remove("hidden");
+  $("#reset-username").focus();
+}
+function closeResetModal() { $("#reset-modal").classList.add("hidden"); }
+async function submitReset() {
+  const username = $("#reset-username").value.trim();
+  const contact = $("#reset-contact").value.trim();
+  const note = $("#reset-note").value.trim();
+  const errEl = $("#reset-err");
+  if (!username) { errEl.textContent = isEn() ? "Please enter your username" : "请填写用户名"; return; }
+  $("#reset-submit").disabled = true;
+  try {
+    const r = await fetch("/api/password-reset", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, contact, note }) });
+    const data = await r.json();
+    if (!r.ok) { errEl.textContent = data.error || (isEn() ? "Submit failed" : "提交失败"); return; }
+    closeResetModal();
+    $("#reset-contact").value = ""; $("#reset-note").value = "";
+    toast(data.message || (isEn() ? "Request submitted" : "申请已提交"));
+  } catch (e) { errEl.textContent = isEn() ? "Network error" : "网络错误"; }
+  finally { $("#reset-submit").disabled = false; }
+}
 async function submitAuth() {
   const username = $("#auth-username").value.trim(), password = $("#auth-password").value;
   if (!username || !password) { $("#auth-err").textContent = "请输入用户名和密码"; return; }
@@ -1881,6 +1907,11 @@ function bindAuth() {
   $$("#auth-modal .modal-tab").forEach(t => t.onclick = () => openAuth(t.dataset.auth));
   $("#auth-modal").onclick = (e) => { if (e.target.id === "auth-modal") closeAuth(); };
   $("#auth-password").onkeydown = (e) => { if (e.key === "Enter") submitAuth(); };
+  // 找回密码：向管理员申请重置
+  $("#auth-forgot").onclick = openResetModal;
+  $("#reset-close").onclick = closeResetModal;
+  $("#reset-modal").onclick = (e) => { if (e.target.id === "reset-modal") closeResetModal(); };
+  $("#reset-submit").onclick = submitReset;
   // 充值
   $("#recharge-close").onclick = () => $("#recharge-modal").classList.add("hidden");
   $("#recharge-modal").onclick = (e) => { if (e.target.id === "recharge-modal") $("#recharge-modal").classList.add("hidden"); };

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="console">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>控制台 · 算法竞赛辅导智能体</title>
+<meta name="robots" content="noindex" />
+<link rel="stylesheet" href="/admin.css" />
+</head>
+<body>
+
+<!-- 登录闸门 -->
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <div class="gate-brand">
+      <span class="gate-mark">▦</span>
+      <div>
+        <h1>运营控制台</h1>
+        <p>Operations Console · 仅限管理员</p>
+      </div>
+    </div>
+    <form id="gate-form" autocomplete="off">
+      <label>管理员账号
+        <input id="gate-user" type="text" placeholder="manager" autocomplete="username" />
+      </label>
+      <label>口令
+        <input id="gate-pass" type="password" placeholder="••••••" autocomplete="current-password" />
+      </label>
+      <button type="submit" id="gate-btn">进入控制台</button>
+      <p id="gate-err" class="gate-err"></p>
+    </form>
+    <p class="gate-foot">登录态独立于普通用户，12 小时后自动失效。</p>
+  </div>
+</div>
+
+<!-- 控制台主体 -->
+<div id="shell" class="shell hidden">
+  <aside class="side">
+    <div class="side-brand">
+      <span class="side-mark">▦</span>
+      <div class="side-name">控制台<small>Console</small></div>
+    </div>
+    <nav class="side-nav">
+      <a class="nav-item active" data-view="overview"><i>◧</i>概览</a>
+      <a class="nav-item" data-view="users"><i>◔</i>用户管理</a>
+      <a class="nav-item" data-view="resets"><i>⚿</i>密码申请<span id="reset-badge" class="nav-badge hidden">0</span></a>
+      <a class="nav-item" data-view="activity"><i>≣</i>活动审计</a>
+      <a class="nav-item" data-view="content"><i>❒</i>内容治理</a>
+    </nav>
+    <div class="side-foot">
+      <a class="side-link" href="/" target="_blank">↗ 打开前台</a>
+      <button id="logout-btn" class="side-logout">退出登录</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h2 id="view-title">概览</h2>
+        <p id="view-sub" class="muted">平台运营全景</p>
+      </div>
+      <div class="topbar-right">
+        <span id="clock" class="clock"></span>
+        <span class="who">管理员</span>
+      </div>
+    </header>
+
+    <!-- 概览 -->
+    <section id="view-overview" class="view">
+      <div id="kpi-row" class="kpi-row"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><h3>系统健康</h3><span class="dot-live">● 在线</span></div>
+          <div id="sys-grid" class="sys-grid"></div>
+          <div class="cap-wrap">
+            <div class="cap-label"><span>全站今日 AI 调用</span><span id="cap-text"></span></div>
+            <div class="cap-bar"><div id="cap-fill" class="cap-fill"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>近 14 天趋势</h3></div>
+          <div class="chart-block">
+            <div class="chart-title">每日提交量</div>
+            <div id="chart-sub" class="chart"></div>
+          </div>
+          <div class="chart-block">
+            <div class="chart-title">每日 AI 调用量</div>
+            <div id="chart-llm" class="chart"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>实时活动</h3><a class="card-more" data-jump="activity">查看全部 →</a></div>
+        <div id="feed" class="feed"></div>
+      </div>
+    </section>
+
+    <!-- 用户管理 -->
+    <section id="view-users" class="view hidden">
+      <div class="toolbar">
+        <input id="user-search" class="search" type="text" placeholder="搜索用户名…" />
+        <span id="user-total" class="muted"></span>
+        <button id="add-user-btn" class="btn-primary">＋ 新增用户</button>
+      </div>
+      <div class="note">
+        <b>密码不可逆</b>：用户口令以 pbkdf2-sha256 加盐哈希存储，系统与管理员都无法看到明文。
+        下方仅展示哈希指纹以自证安全；如需接管账号，请用「重置密码」。
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th>ID</th><th>用户名</th><th>注册</th><th>算力点</th>
+            <th>提交 / AC</th><th>学习时长</th><th>最近活跃</th>
+            <th>密码（不可逆）</th><th class="ta-r">操作</th>
+          </tr></thead>
+          <tbody id="user-rows"></tbody>
+        </table>
+      </div>
+      <div id="user-pager" class="pager"></div>
+    </section>
+
+    <!-- 密码找回申请 -->
+    <section id="view-resets" class="view hidden">
+      <div class="toolbar">
+        <span class="muted">用户在登录页提交的「向管理员申请重置密码」工单。</span>
+        <select id="reset-filter" class="search" style="width:auto">
+          <option value="pending">待处理</option>
+          <option value="done">已处理</option>
+          <option value="dismissed">已忽略</option>
+          <option value="all">全部</option>
+        </select>
+        <button id="reset-refresh" class="btn-ghost">↻ 刷新</button>
+      </div>
+      <div class="note">
+        核实身份后点「重置」直接为该账号设新密码（写新哈希），再线下把新密码告知本人。
+        系统全程不显示、也无法还原原密码。
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>ID</th><th>用户名</th><th>联系方式</th><th>说明</th><th>状态</th><th>提交时间</th><th class="ta-r">操作</th></tr></thead>
+          <tbody id="reset-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 活动审计 -->
+    <section id="view-activity" class="view hidden">
+      <div class="toolbar">
+        <span class="muted">最近 120 条平台调用记录（含 IP / 端点 / 指纹）</span>
+        <button id="audit-refresh" class="btn-ghost">↻ 刷新</button>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>时间</th><th>用户</th><th>IP</th><th>端点</th><th>指纹</th></tr></thead>
+          <tbody id="audit-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 内容治理 -->
+    <section id="view-content" class="view hidden">
+      <div class="toolbar">
+        <span class="muted">社群帖子（按发布倒序）。可删除违规内容。</span>
+        <button id="content-refresh" class="btn-ghost">↻ 刷新</button>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>ID</th><th>作者</th><th>板块</th><th>标题</th><th>赞 / 回</th><th>时间</th><th class="ta-r">操作</th></tr></thead>
+          <tbody id="post-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 通用弹窗 -->
+<div id="modal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head"><h3 id="modal-title">标题</h3><button id="modal-x" class="modal-x">✕</button></div>
+    <div id="modal-body" class="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="/admin.js"></script>
+</body>
+</html>

@@ -130,3 +130,23 @@ class PostLike(Base):
     post_id: Mapped[int] = mapped_column(ForeignKey("posts.id"), index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class ResetRequest(Base):
+    """找回密码工单：用户在登录页提交「向管理员申请重置」，管理员后台处理。
+
+    刻意不走邮件（免费实例不接 SMTP，改动太大）：用户留一个联系方式 + 说明，
+    管理员核实身份后在后台直接为其设新密码（写新哈希），再线下把新密码告知本人。
+    密码仍是单向哈希，全程不出现明文回显。
+    """
+    __tablename__ = "reset_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True)   # 提交时若用户名命中则关联
+    username: Mapped[str] = mapped_column(String(40), index=True)
+    contact: Mapped[str | None] = mapped_column(String(80), nullable=True)   # QQ/手机后四位等便于核实
+    note: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)  # pending/done/dismissed
+    created_at: Mapped[float] = mapped_column(Float, default=time.time, index=True)
+    handled_at: Mapped[float | None] = mapped_column(Float, nullable=True)

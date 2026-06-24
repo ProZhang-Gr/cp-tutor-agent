@@ -15,8 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from config import settings
-from core import (agents, auth, billing, community, guard, profile, progress,
-                  report, sandbox, telemetry)
+from core import (admin, agents, auth, billing, community, guard, profile, progress,
+                  report, sandbox, support, telemetry)
 from core.llm import get_llm
 from core.rag import get_bank
 from core.debugger import run_debug_stream
@@ -247,6 +247,24 @@ def login(req: AuthReq, request: Request, resp: Response):
 def logout(resp: Response):
     resp.delete_cookie(COOKIE)
     return {"ok": True}
+
+
+class PwResetReq(BaseModel):
+    username: str = ""
+    contact: str = ""
+    note: str = ""
+
+
+@app.post("/api/password-reset")
+def password_reset_request(req: PwResetReq, request: Request):
+    """找回密码：提交一条「向管理员申请重置」工单（不接邮件，零外部依赖）。"""
+    ok, msg = guard.rate_limit_only(_ip(request))   # 限流防刷工单
+    if not ok:
+        return JSONResponse({"error": msg}, status_code=429)
+    okk, m = support.create_request(req.username, req.contact, req.note)
+    if not okk:
+        return JSONResponse({"error": m}, status_code=400)
+    return {"ok": True, "message": m}
 
 
 @app.get("/api/me")
@@ -712,10 +730,207 @@ def community_like(pid: int, arena_session: str = Cookie(default=None)):
     return {"likes": likes, "liked": liked}
 
 
+# ------------------------- 管理后台 -------------------------
+ADMIN_COOKIE = "arena_admin"
+
+
+class AdminLoginReq(BaseModel):
+    username: str = ""
+    password: str = ""
+
+
+class AdminUserCreateReq(BaseModel):
+    username: str
+    password: str
+    credits: int = 0
+
+
+class AdminUserUpdateReq(BaseModel):
+    username: str | None = None
+    credits: int | None = None
+
+
+class AdminResetPwReq(BaseModel):
+    password: str
+
+
+def _is_admin(token):
+    return bool(token) and admin.check_token(token)
+
+
+def _require_admin(token):
+    """管理态守门：未通过返回 401 响应，通过返回 None。"""
+    if not _is_admin(token):
+        return JSONResponse({"error": "需要管理员登录"}, status_code=401)
+    return None
+
+
+@app.post("/api/admin/login")
+def admin_login(req: AdminLoginReq, request: Request, resp: Response):
+    ok, msg = guard.rate_limit_only(_ip(request))   # 限流防口令爆破
+    if not ok:
+        return JSONResponse({"error": msg}, status_code=429)
+    if not admin.verify(req.username, req.password):
+        return JSONResponse({"error": "管理员账号或密码错误"}, status_code=401)
+    resp.set_cookie(ADMIN_COOKIE, admin.make_token(), httponly=True, samesite="lax",
+                    secure=settings.COOKIE_SECURE, max_age=12 * 3600)
+    return {"ok": True}
+
+
+@app.post("/api/admin/logout")
+def admin_logout(resp: Response):
+    resp.delete_cookie(ADMIN_COOKIE)
+    return {"ok": True}
+
+
+@app.get("/api/admin/session")
+def admin_session(arena_admin: str = Cookie(default=None)):
+    return {"admin": _is_admin(arena_admin)}
+
+
+@app.get("/api/admin/overview")
+def admin_overview(arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    return admin.overview()
+
+
+@app.get("/api/admin/users")
+def admin_users(q: str = "", page: int = 1, size: int = 20,
+                arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    return admin.list_users(q, page, size)
+
+
+@app.get("/api/admin/users/{uid}")
+def admin_user_detail(uid: int, arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    d = admin.user_detail(uid)
+    return d or JSONResponse({"error": "用户不存在"}, status_code=404)
+
+
+@app.post("/api/admin/users")
+def admin_user_create(req: AdminUserCreateReq, arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    user, err = admin.create_user(req.username, req.password, req.credits)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    return {"user": user}
+
+
+@app.patch("/api/admin/users/{uid}")
+def admin_user_update(uid: int, req: AdminUserUpdateReq,
+                      arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    user, err = admin.update_user(uid, req.username, req.credits)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    return {"user": user}
+
+
+@app.post("/api/admin/users/{uid}/reset-password")
+def admin_user_reset_pw(uid: int, req: AdminResetPwReq,
+                        arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    err = admin.reset_password(uid, req.password)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    return {"ok": True}
+
+
+@app.delete("/api/admin/users/{uid}")
+def admin_user_delete(uid: int, arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    err = admin.delete_user(uid)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    return {"ok": True}
+
+
+@app.get("/api/admin/audit")
+def admin_audit(limit: int = 80, arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    return {"audit": admin.recent_audit(limit)}
+
+
+@app.get("/api/admin/posts")
+def admin_posts(limit: int = 100, arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    return {"posts": admin.list_posts_admin(limit)}
+
+
+@app.delete("/api/admin/posts/{pid}")
+def admin_post_delete(pid: int, arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    err = admin.delete_post(pid)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    return {"ok": True}
+
+
+class AdminResolveReq(BaseModel):
+    password: str
+
+
+@app.get("/api/admin/reset-requests")
+def admin_reset_list(status: str = "pending", arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    return {"requests": support.list_requests(status), "pending": support.pending_count()}
+
+
+@app.post("/api/admin/reset-requests/{rid}/resolve")
+def admin_reset_resolve(rid: int, req: AdminResolveReq,
+                        arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    err = support.resolve_request(rid, req.password)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    return {"ok": True}
+
+
+@app.post("/api/admin/reset-requests/{rid}/dismiss")
+def admin_reset_dismiss(rid: int, arena_admin: str = Cookie(default=None)):
+    block = _require_admin(arena_admin)
+    if block:
+        return block
+    err = support.dismiss_request(rid)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    return {"ok": True}
+
+
 # ------------------------- 前端静态资源 -------------------------
 @app.get("/")
 def index():
     return FileResponse(settings.STATIC_DIR + "/index.html")
+
+
+@app.get("/admin")
+def admin_page():
+    return FileResponse(settings.STATIC_DIR + "/admin.html")
 
 
 app.mount("/", StaticFiles(directory=settings.STATIC_DIR), name="static")

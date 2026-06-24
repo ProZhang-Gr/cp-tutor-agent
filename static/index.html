@@ -372,7 +372,22 @@
     <input id="auth-password" class="modal-input" type="password" data-i18n-ph="auth.password.ph" placeholder="密码（至少 8 位）" autocomplete="current-password">
     <div class="auth-err" id="auth-err"></div>
     <button class="btn btn-primary btn-block" id="auth-submit" data-i18n="auth.login">登录</button>
+    <div class="auth-forgot-row"><a id="auth-forgot" class="auth-forgot" data-i18n="auth.forgot">忘记密码？向管理员申请重置</a></div>
     <div class="auth-hint" data-i18n="auth.hint">游客可免费使用判题、智能体分析、导师审阅与算法图解。登录后记录学习历史、按画像因材施教，并可看广告或充值解锁苏格拉底导师 / 导师对话 / 深度分析。</div>
+  </div>
+</div>
+
+<!-- 找回密码：向管理员申请重置 -->
+<div class="modal-overlay hidden" id="reset-modal">
+  <div class="modal">
+    <button class="modal-close" id="reset-close">×</button>
+    <div class="modal-tabs"><button class="modal-tab active" data-i18n="reset.title">找回密码</button></div>
+    <div class="auth-hint" style="margin-top:0" data-i18n="reset.intro">密码以不可逆方式加密存储，系统无法找回原密码。提交申请后，管理员核实身份会为你重置一个新密码，并通过你留的联系方式告知你。</div>
+    <input id="reset-username" class="modal-input" data-i18n-ph="reset.username.ph" placeholder="你的用户名" autocomplete="username">
+    <input id="reset-contact" class="modal-input" data-i18n-ph="reset.contact.ph" placeholder="联系方式（QQ / 手机后四位，便于核实身份）">
+    <input id="reset-note" class="modal-input" data-i18n-ph="reset.note.ph" placeholder="补充说明（可选）">
+    <div class="auth-err" id="reset-err"></div>
+    <button class="btn btn-primary btn-block" id="reset-submit" data-i18n="reset.submit">提交申请</button>
   </div>
 </div>
 
