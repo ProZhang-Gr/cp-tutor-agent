@@ -175,6 +175,21 @@ def pass_b_tour(browser):
             page.wait_for_timeout(300)
         except Exception as e:
             print("  (%s 跳过: %s)" % (nm, e))
+
+    print("  -- C++ 语言：编译运行 --")
+    try:
+        page.select_option("#lang-select", "cpp")
+        page.wait_for_timeout(600)
+        cpp = ("#include <bits/stdc++.h>\nusing namespace std;\n\n"
+               "int main(){\n    int a, b; cin >> a >> b;\n    cout << a + b << \"\\n\";\n    return 0;\n}\n")
+        page.evaluate("(c)=>{ if(window.editor) editor.setValue(c); }", cpp)
+        page.fill("#custom-input", "2 3")
+        page.click("#btn-run")
+        page.wait_for_timeout(2600)
+        shot(page, "cpp_run", full=False)
+        page.select_option("#lang-select", "python")
+    except Exception as e:
+        print("  (C++ 跳过:", e, ")")
     ctx.close()
 
 

@@ -199,6 +199,158 @@ def run_python(code, stdin_data="", timeout=None):
         shutil.rmtree(base, ignore_errors=True)   # 清理临时目录，避免磁盘泄漏堆积
 
 
+# ===================== C++ 支持（编译一次，多次运行） =====================
+# 说明：C++ 走「编译成二进制 → 反复喂 stdin 运行」。编译只做一次（判题会跑很多用例，
+# 每次重编译在 0.1CPU 的免费机上会慢到不可用）。安全上：编译出的原生二进制无法套用
+# Python 的 sys.addaudithook（那是解释器级钩子），但仍有 setrlimit（内存/CPU/文件大小）
+# + 独立进程组超时整组击杀 + 空 cwd + 不传任何密钥环境变量。这是教学级隔离，非系统级硬隔离。
+def _norm_lang(language):
+    l = (language or "python").strip().lower()
+    return "cpp" if l in ("cpp", "c++", "cc", "cxx", "g++") else "python"
+
+
+_compiler_dir_cache = None
+_compiler_dir_done = False
+
+
+def _compiler_dir():
+    """编译器所在目录（缓存）。"""
+    global _compiler_dir_cache, _compiler_dir_done
+    if not _compiler_dir_done:
+        try:
+            p = shutil.which(settings.CPP_COMPILER)
+            _compiler_dir_cache = os.path.dirname(p) if p else None
+        except Exception:
+            _compiler_dir_cache = None
+        _compiler_dir_done = True
+    return _compiler_dir_cache
+
+
+def _native_env():
+    """跑原生工具链 / 编译出的二进制用：在 _safe_env 基础上，把编译器目录提到 PATH 最前。
+
+    Windows 上常装多套 MinGW，cc1plus / 二进制按 PATH 顺序加载 DLL，前面若是别的
+    GCC 的 libstdc++ 会静默崩溃（rc=1 无输出）；提前编译器目录可避开。Linux 上无害。
+    """
+    env = _safe_env()
+    d = _compiler_dir()
+    if d:
+        env["PATH"] = d + os.pathsep + env.get("PATH", "")
+    return env
+
+
+def _exec(argv, stdin_data, timeout, cwd, env, clean_paths):
+    """启动已就绪的程序（解释器或编译好的二进制），喂 stdin、限时限资源、清洗报错路径。"""
+    popen_kwargs = dict(stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                        text=True, encoding="utf-8", cwd=cwd, env=env)
+    if _POSIX:
+        popen_kwargs["start_new_session"] = True
+        popen_kwargs["preexec_fn"] = _limit_resources(int(timeout) + 1)
+    try:
+        proc = subprocess.Popen(argv, **popen_kwargs)
+    except Exception as e:
+        return {"status": RE, "stdout": "", "stderr": str(e), "time_ms": 0}
+    try:
+        out, err = proc.communicate(input=stdin_data, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_tree(proc)
+        return {"status": TLE, "stdout": "", "stderr": "超过时间限制 %ss" % timeout, "time_ms": int(timeout * 1000)}
+    except Exception as e:
+        _kill_tree(proc)
+        return {"status": RE, "stdout": "", "stderr": str(e), "time_ms": 0}
+    if proc.returncode != 0:
+        return {"status": RE, "stdout": out or "",
+                "stderr": _clean_trace((err or "").strip(), *clean_paths)[-1500:], "time_ms": 0}
+    return {"status": "OK", "stdout": out or "", "stderr": err or "", "time_ms": 0}
+
+
+def _compile_cpp(code):
+    """编译 C++。成功返回 (base, binpath, None)，失败返回 (base, None, 结果dict)。
+    base 由调用方负责 rmtree。"""
+    base = tempfile.mkdtemp(prefix="run_")
+    src_dir = os.path.join(base, ".src")
+    work_dir = os.path.join(base, "work")
+    os.makedirs(src_dir, exist_ok=True)
+    os.makedirs(work_dir, exist_ok=True)
+    src = os.path.join(src_dir, "main.cpp")
+    binp = os.path.join(src_dir, "main" if _POSIX else "main.exe")
+    with open(src, "w", encoding="utf-8") as f:
+        f.write(code)
+    cmd = [settings.CPP_COMPILER, "-O2", "-std=" + settings.CPP_STD, "-pipe", src, "-o", binp]
+    try:
+        cp = subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True, encoding="utf-8",
+                            cwd=src_dir, env=_native_env(), timeout=settings.COMPILE_TIMEOUT)
+    except FileNotFoundError:
+        return base, None, {"status": RE, "stdout": "",
+                            "stderr": "服务器未安装 C++ 编译器（g++）", "time_ms": 0}
+    except subprocess.TimeoutExpired:
+        return base, None, {"status": CE, "stdout": "",
+                            "stderr": "编译超时（>%ss）" % settings.COMPILE_TIMEOUT, "time_ms": 0}
+    except Exception as e:
+        return base, None, {"status": RE, "stdout": "", "stderr": str(e), "time_ms": 0}
+    if cp.returncode != 0:
+        return base, None, {"status": CE, "stdout": "",
+                            "stderr": _clean_trace((cp.stderr or "").strip(), src, src_dir, base)[-2000:],
+                            "time_ms": 0}
+    return base, binp, None
+
+
+class Program:
+    """一个已就绪、可反复喂数据运行的程序。
+
+    Python：持有源码，每次 run 走既有 run_python（含审计钩子隔离）。
+    C++：编译一次得到二进制，之后每次 run 直接跑二进制（不重复编译）。
+    用完务必 close() 清临时目录。
+    """
+    def __init__(self, language, code="", base=None, binpath=None, error=None):
+        self.language = language
+        self.code = code
+        self.base = base
+        self.binpath = binpath
+        self.error = error          # 准备失败（编译错误/缺编译器）时的结果 dict
+
+    def ok(self):
+        return self.error is None
+
+    def run(self, stdin_data="", timeout=None):
+        timeout = timeout or settings.SANDBOX_TIMEOUT
+        if self.language == "cpp":
+            work_dir = os.path.join(self.base, "work")
+            return _exec([self.binpath], stdin_data, timeout, work_dir, _native_env(),
+                         (self.binpath, os.path.join(self.base, ".src"), self.base))
+        return run_python(self.code, stdin_data, timeout)
+
+    def close(self):
+        if self.base:
+            shutil.rmtree(self.base, ignore_errors=True)
+            self.base = None
+
+
+def prepare(code, language="python"):
+    """准备可反复运行的程序：C++ 先编译（失败时 error 带 CE/RE），Python 直接持源码。"""
+    if _norm_lang(language) == "cpp":
+        base, binp, err = _compile_cpp(code)
+        if err is not None:
+            shutil.rmtree(base, ignore_errors=True)
+            return Program("cpp", error=err)
+        return Program("cpp", base=base, binpath=binp)
+    return Program("python", code=code)
+
+
+def run_code(code, language="python", stdin_data="", timeout=None):
+    """单次运行（/api/run、调试探针等用）：内部 prepare → run → close。"""
+    prog = prepare(code, language)
+    if not prog.ok():
+        err = prog.error
+        prog.close()
+        return err
+    try:
+        return prog.run(stdin_data, timeout)
+    finally:
+        prog.close()
+
+
 def judge(code, test_cases, timeout=None):
     """对一组测试用例判题，返回每个用例的结果与汇总。"""
     results = []

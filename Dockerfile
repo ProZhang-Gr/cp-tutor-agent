@@ -2,6 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# C++ 判题需要编译器：装 g++（仅 C++；不装 JDK——免费实例 512MB 跑 JVM 吃力，刻意不支持 Java）
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 # 先装依赖，利用 Docker 层缓存
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

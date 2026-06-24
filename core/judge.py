@@ -50,49 +50,63 @@ def load_real_tests(problem_id):
 
 
 # ===================== 轨道一：真值判定 =====================
-def judge_by_truth(code, tests, timeout=None):
-    """对真实测试数据逐组判题，遇首个不通过即停（贴近 OJ）。"""
+def judge_by_truth(code, tests, timeout=None, language="python"):
+    """对真实测试数据逐组判题，遇首个不通过即停（贴近 OJ）。
+
+    C++ 等编译型语言：先编译一次（失败即 CE），再用同一个二进制跑完所有用例，
+    不每个用例重复编译。
+    """
     timeout = timeout or settings.SANDBOX_TIMEOUT
     total = len(tests)
+    prog = sandbox.prepare(code, language)
+    if not prog.ok():
+        return {
+            "mode": "truth", "verdict": CE, "passed": 0, "total": total,
+            "results": [{"index": 0, "kind": "", "status": CE,
+                         "input": "", "expected": "", "actual": prog.error["stderr"]}],
+            "counterexample": None,
+        }
     passed = 0
     detail = []
     counterexample = None
     verdict = AC
+    try:
+        for i, tc in enumerate(tests):
+            inp = tc.get("input", "") or ""
+            expected = tc.get("expected", "") or ""
+            run = prog.run(inp, timeout)
+            st = run["status"]
 
-    for i, tc in enumerate(tests):
-        inp = tc.get("input", "") or ""
-        expected = tc.get("expected", "") or ""
-        run = run_python(code, inp, timeout)
-        st = run["status"]
-
-        if st == CE:
-            return {
-                "mode": "truth", "verdict": CE, "passed": 0, "total": total,
-                "results": [{"index": 0, "kind": tc.get("kind", ""), "status": CE,
-                             "input": "", "expected": "", "actual": run["stderr"]}],
-                "counterexample": None,
-            }
-        if st in (TLE, RE):
-            verdict = st
-            counterexample = {"input": _trunc(inp), "expected": _trunc(expected),
-                              "actual": _trunc(run["stderr"] or "(无输出)"), "reason": st}
-            detail.append({"index": i, "kind": tc.get("kind", ""), "status": st,
-                           "input": _trunc(inp, 400), "expected": _trunc(expected, 400),
-                           "actual": _trunc(run["stderr"], 400)})
-            break
-        if _normalize(run["stdout"]) == _normalize(expected):
-            passed += 1
-            detail.append({"index": i, "kind": tc.get("kind", ""), "status": AC,
-                           "input": _trunc(inp, 400), "expected": _trunc(expected, 400),
-                           "actual": _trunc(run["stdout"], 400)})
-        else:
-            verdict = WA
-            counterexample = {"input": _trunc(inp), "expected": _trunc(expected),
-                              "actual": _trunc(run["stdout"]), "reason": WA}
-            detail.append({"index": i, "kind": tc.get("kind", ""), "status": WA,
-                           "input": _trunc(inp, 400), "expected": _trunc(expected, 400),
-                           "actual": _trunc(run["stdout"], 400)})
-            break
+            if st == CE:   # 编译期已捕获，运行期一般不会再 CE；保留兜底
+                return {
+                    "mode": "truth", "verdict": CE, "passed": 0, "total": total,
+                    "results": [{"index": 0, "kind": tc.get("kind", ""), "status": CE,
+                                 "input": "", "expected": "", "actual": run["stderr"]}],
+                    "counterexample": None,
+                }
+            if st in (TLE, RE):
+                verdict = st
+                counterexample = {"input": _trunc(inp), "expected": _trunc(expected),
+                                  "actual": _trunc(run["stderr"] or "(无输出)"), "reason": st}
+                detail.append({"index": i, "kind": tc.get("kind", ""), "status": st,
+                               "input": _trunc(inp, 400), "expected": _trunc(expected, 400),
+                               "actual": _trunc(run["stderr"], 400)})
+                break
+            if _normalize(run["stdout"]) == _normalize(expected):
+                passed += 1
+                detail.append({"index": i, "kind": tc.get("kind", ""), "status": AC,
+                               "input": _trunc(inp, 400), "expected": _trunc(expected, 400),
+                               "actual": _trunc(run["stdout"], 400)})
+            else:
+                verdict = WA
+                counterexample = {"input": _trunc(inp), "expected": _trunc(expected),
+                                  "actual": _trunc(run["stdout"]), "reason": WA}
+                detail.append({"index": i, "kind": tc.get("kind", ""), "status": WA,
+                               "input": _trunc(inp, 400), "expected": _trunc(expected, 400),
+                               "actual": _trunc(run["stdout"], 400)})
+                break
+    finally:
+        prog.close()
 
     if counterexample is None:
         verdict = AC
@@ -108,97 +122,111 @@ def _run_ok(code, stdin, timeout):
     return r["status"] == "OK", r
 
 
-def judge_by_stress(problem, code, trials=None, timeout=None):
-    """用 LLM 暴力解当真值对拍用户解，抓最小反例。"""
+def judge_by_stress(problem, code, trials=None, timeout=None, language="python"):
+    """用 LLM 暴力解当真值对拍用户解，抓最小反例。
+
+    用户解可能是 C++（编译一次反复跑）；暴力解 / 数据生成器始终是 LLM 产出的 Python。
+    """
     trials = trials or settings.STRESS_TRIALS
     timeout = timeout or settings.STRESS_TIMEOUT
 
-    kit = agents.gen_stress_kit(problem)
-    brute, gen, samples = kit["brute_code"], kit["gen_code"], kit["samples"]
+    # 先准备用户解（C++ 在此编译）；编译失败直接 CE，省掉后面的 LLM 对拍开销
+    prog = sandbox.prepare(code, language)
+    if not prog.ok():
+        return {"mode": "stress", "verdict": CE, "passed": 0, "total": 0,
+                "results": [{"index": 0, "kind": "", "status": CE,
+                             "input": "", "expected": "", "actual": prog.error["stderr"]}],
+                "counterexample": None,
+                "stress": {"brute_ok": False, "trials": 0, "note": "编译/语法错误"}}
+    try:
+        kit = agents.gen_stress_kit(problem)
+        brute, gen, samples = kit["brute_code"], kit["gen_code"], kit["samples"]
 
-    if not brute or not gen:
-        return {"mode": "stress", "verdict": "NO_KIT", "passed": 0, "total": 0,
-                "results": [], "counterexample": None,
-                "stress": {"brute_ok": False, "trials": 0,
-                           "note": "无法自动生成对拍工具，已退回静态审查评分。"}}
+        if not brute or not gen:
+            return {"mode": "stress", "verdict": "NO_KIT", "passed": 0, "total": 0,
+                    "results": [], "counterexample": None,
+                    "stress": {"brute_ok": False, "trials": 0,
+                               "note": "无法自动生成对拍工具，已退回静态审查评分。"}}
 
-    # 1) 校验暴力解：它得先通过题面样例，否则真值不可信
-    brute_ok = True
-    for s in samples:
-        ok, r = _run_ok(brute, s.get("input", ""), timeout)
-        if not ok or _normalize(r["stdout"]) != _normalize(s.get("output", "")):
-            brute_ok = False
-            break
+        # 1) 校验暴力解：它得先通过题面样例，否则真值不可信
+        brute_ok = True
+        for s in samples:
+            ok, r = _run_ok(brute, s.get("input", ""), timeout)
+            if not ok or _normalize(r["stdout"]) != _normalize(s.get("output", "")):
+                brute_ok = False
+                break
 
-    detail = []
+        detail = []
 
-    # 2) 先用题面样例直接判用户解（最高可信度的反例来源）
-    for i, s in enumerate(samples):
-        inp, exp = s.get("input", ""), s.get("output", "")
-        run = run_python(code, inp, timeout)
-        st = run["status"]
-        if st == CE:
-            return {"mode": "stress", "verdict": CE, "passed": 0, "total": len(samples),
-                    "results": [{"index": 0, "kind": "样例", "status": CE,
-                                 "input": "", "expected": "", "actual": run["stderr"]}],
-                    "counterexample": None,
-                    "stress": {"brute_ok": brute_ok, "trials": 0, "note": "样例阶段语法错误"}}
-        passed_case = st == "OK" and _normalize(run["stdout"]) == _normalize(exp)
-        detail.append({"index": i, "kind": "样例", "status": AC if passed_case else (st if st != "OK" else WA),
-                       "input": _trunc(inp, 400), "expected": _trunc(exp, 400),
-                       "actual": _trunc(run["stdout"] if st == "OK" else run["stderr"], 400)})
-        if not passed_case:
-            ce = {"input": _trunc(inp), "expected": _trunc(exp),
-                  "actual": _trunc(run["stdout"] if st == "OK" else run["stderr"]),
-                  "reason": st if st != "OK" else WA}
-            return {"mode": "stress", "verdict": st if st in (TLE, RE) else WA,
-                    "passed": i, "total": len(samples), "results": detail,
-                    "counterexample": ce,
-                    "stress": {"brute_ok": brute_ok, "trials": 0,
-                               "note": "题面样例即不通过"}}
+        # 2) 先用题面样例直接判用户解（最高可信度的反例来源）
+        for i, s in enumerate(samples):
+            inp, exp = s.get("input", ""), s.get("output", "")
+            run = prog.run(inp, timeout)
+            st = run["status"]
+            if st == CE:
+                return {"mode": "stress", "verdict": CE, "passed": 0, "total": len(samples),
+                        "results": [{"index": 0, "kind": "样例", "status": CE,
+                                     "input": "", "expected": "", "actual": run["stderr"]}],
+                        "counterexample": None,
+                        "stress": {"brute_ok": brute_ok, "trials": 0, "note": "样例阶段语法错误"}}
+            passed_case = st == "OK" and _normalize(run["stdout"]) == _normalize(exp)
+            detail.append({"index": i, "kind": "样例", "status": AC if passed_case else (st if st != "OK" else WA),
+                           "input": _trunc(inp, 400), "expected": _trunc(exp, 400),
+                           "actual": _trunc(run["stdout"] if st == "OK" else run["stderr"], 400)})
+            if not passed_case:
+                ce = {"input": _trunc(inp), "expected": _trunc(exp),
+                      "actual": _trunc(run["stdout"] if st == "OK" else run["stderr"]),
+                      "reason": st if st != "OK" else WA}
+                return {"mode": "stress", "verdict": st if st in (TLE, RE) else WA,
+                        "passed": i, "total": len(samples), "results": detail,
+                        "counterexample": ce,
+                        "stress": {"brute_ok": brute_ok, "trials": 0,
+                                   "note": "题面样例即不通过"}}
 
-    # 3) 随机对拍：用暴力解当真值，逐组找第一处分歧
-    done = 0
-    for seed in range(trials):
-        ok_g, rg = _run_ok(gen, str(seed), timeout)
-        if not ok_g or not rg["stdout"].strip():
-            continue
-        inp = rg["stdout"]
-        ok_b, rb = _run_ok(brute, inp, timeout)
-        if not ok_b:        # 暴力解自己崩了/超时，这组数据跳过
-            continue
-        expected = rb["stdout"]
-        run = run_python(code, inp, timeout)
-        st = run["status"]
-        done += 1
-        if st in (CE, TLE, RE):
-            ce = {"input": _trunc(inp), "expected": _trunc(expected),
-                  "actual": _trunc(run["stderr"] or "(无输出)"), "reason": st}
-            return {"mode": "stress", "verdict": st, "passed": len(samples) + done - 1,
-                    "total": len(samples) + done, "results": detail, "counterexample": ce,
-                    "stress": {"brute_ok": brute_ok, "trials": done,
-                               "note": "随机对拍第 %d 组触发 %s" % (done, st)}}
-        if _normalize(run["stdout"]) != _normalize(expected):
-            ce = {"input": _trunc(inp), "expected": _trunc(expected),
-                  "actual": _trunc(run["stdout"]), "reason": WA}
-            return {"mode": "stress", "verdict": WA, "passed": len(samples) + done - 1,
-                    "total": len(samples) + done, "results": detail, "counterexample": ce,
-                    "stress": {"brute_ok": brute_ok, "trials": done,
-                               "note": "随机对拍第 %d 组发现反例" % done}}
+        # 3) 随机对拍：用暴力解当真值，逐组找第一处分歧
+        done = 0
+        for seed in range(trials):
+            ok_g, rg = _run_ok(gen, str(seed), timeout)
+            if not ok_g or not rg["stdout"].strip():
+                continue
+            inp = rg["stdout"]
+            ok_b, rb = _run_ok(brute, inp, timeout)
+            if not ok_b:        # 暴力解自己崩了/超时，这组数据跳过
+                continue
+            expected = rb["stdout"]
+            run = prog.run(inp, timeout)
+            st = run["status"]
+            done += 1
+            if st in (CE, TLE, RE):
+                ce = {"input": _trunc(inp), "expected": _trunc(expected),
+                      "actual": _trunc(run["stderr"] or "(无输出)"), "reason": st}
+                return {"mode": "stress", "verdict": st, "passed": len(samples) + done - 1,
+                        "total": len(samples) + done, "results": detail, "counterexample": ce,
+                        "stress": {"brute_ok": brute_ok, "trials": done,
+                                   "note": "随机对拍第 %d 组触发 %s" % (done, st)}}
+            if _normalize(run["stdout"]) != _normalize(expected):
+                ce = {"input": _trunc(inp), "expected": _trunc(expected),
+                      "actual": _trunc(run["stdout"]), "reason": WA}
+                return {"mode": "stress", "verdict": WA, "passed": len(samples) + done - 1,
+                        "total": len(samples) + done, "results": detail, "counterexample": ce,
+                        "stress": {"brute_ok": brute_ok, "trials": done,
+                                   "note": "随机对拍第 %d 组发现反例" % done}}
 
-    # 全部通过：注意这是经验性结论，不是数学证明
-    note = "对拍 %d 组随机数据 + %d 个样例均未发现反例" % (done, len(samples))
-    if not brute_ok:
-        note += "（注：暴力解未通过样例校验，真值可信度有限）"
-    return {"mode": "stress", "verdict": AC, "passed": len(samples) + done,
-            "total": len(samples) + done, "results": detail, "counterexample": None,
-            "stress": {"brute_ok": brute_ok, "trials": done, "note": note}}
+        # 全部通过：注意这是经验性结论，不是数学证明
+        note = "对拍 %d 组随机数据 + %d 个样例均未发现反例" % (done, len(samples))
+        if not brute_ok:
+            note += "（注：暴力解未通过样例校验，真值可信度有限）"
+        return {"mode": "stress", "verdict": AC, "passed": len(samples) + done,
+                "total": len(samples) + done, "results": detail, "counterexample": None,
+                "stress": {"brute_ok": brute_ok, "trials": done, "note": note}}
+    finally:
+        prog.close()
 
 
 # ===================== 统一入口 =====================
-def judge_solution(problem, code, problem_id=None):
-    """优先用官方真实数据判（真值），没有则自动对拍。"""
+def judge_solution(problem, code, problem_id=None, language="python"):
+    """优先用官方真实数据判（真值），没有则自动对拍。language ∈ {python, cpp}。"""
     tests = load_real_tests(problem_id)
     if tests:
-        return judge_by_truth(code, tests)
-    return judge_by_stress(problem, code)
+        return judge_by_truth(code, tests, language=language)
+    return judge_by_stress(problem, code, language=language)

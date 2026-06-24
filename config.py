@@ -68,6 +68,13 @@ class Settings:
     # 沙箱
     SANDBOX_TIMEOUT = 6  # 单个测试用例超时（秒）
 
+    # 多语言判题：Python（内建）+ C++（需运行环境有 g++；Dockerfile 已装 build-essential）。
+    # 不支持 Java（免费实例 512MB 跑 JVM 偏吃力，刻意不做）。
+    SUPPORTED_LANGS = ("python", "cpp")
+    CPP_COMPILER = os.getenv("CPP_COMPILER", "g++")
+    CPP_STD = os.getenv("CPP_STD", "c++17")
+    COMPILE_TIMEOUT = 12  # 编译超时（秒），挡编译炸弹
+
     # 对拍（差分测试）：无真实数据时，用暴力解 + 随机生成器 stress test
     STRESS_TRIALS = 30     # 随机对拍轮数
     STRESS_TIMEOUT = 4     # 对拍时单次运行超时（秒），比正式判题略短

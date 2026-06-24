@@ -188,6 +188,7 @@ class ChatReq(BaseModel):
 class RunReq(BaseModel):
     code: str
     stdin: str = ""
+    language: str = "python"
 
 
 class ReviewCodeReq(BaseModel):
@@ -200,6 +201,7 @@ class DebugReq(BaseModel):
     problem: str = ""
     code: str
     counterexample: dict = {}  # {input, expected, actual, reason}
+    language: str = "python"
 
 
 class AuthReq(BaseModel):
@@ -460,7 +462,8 @@ def debug(req: DebugReq, request: Request, arena_session: str = Cookie(default=N
     def gen():
         yield sse({"event": "start"})
         try:
-            for kind, payload in run_debug_stream(req.problem, req.code, req.counterexample):
+            dlang = req.language if req.language in settings.SUPPORTED_LANGS else "python"
+            for kind, payload in run_debug_stream(req.problem, req.code, req.counterexample, dlang):
                 yield sse({"event": kind, "data": payload})
             yield sse({"event": "done"})
         except Exception as e:
@@ -589,7 +592,8 @@ def run_code(req: RunReq, request: Request):
         return JSONResponse({"error": "代码过长"}, status_code=400)
     if len(req.stdin) > settings.MAX_CODE_CHARS:
         return JSONResponse({"error": "输入过长"}, status_code=400)
-    return sandbox.run_python(req.code, req.stdin)
+    lang = req.language if req.language in settings.SUPPORTED_LANGS else "python"
+    return sandbox.run_code(req.code, lang, req.stdin)
 
 
 # ------------------------- 学习进度仪表盘 -------------------------

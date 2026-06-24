@@ -78,9 +78,10 @@ def _node_review(state):
 
 
 def _node_judge(state):
-    """双轨判题：有官方数据走真值，否则自动对拍。"""
+    """双轨判题：有官方数据走真值，否则自动对拍。按提交语言（python/cpp）运行。"""
     return {"judge": judge.judge_solution(
-        state["problem"], state["code"], state.get("problem_id"))}
+        state["problem"], state["code"], state.get("problem_id"),
+        language=state.get("language", "python"))}
 
 
 # 判题裁决 → 中文结论

@@ -7,7 +7,32 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
 // 新建/换题时编辑器的空白模板
-const DEFAULT_CODE = "import sys\n\ndef main():\n    data = sys.stdin.read().split()\n    # 在此编写你的解法\n    print()\n\nmain()\n";
+// 新建/换题时各语言的空白模板
+const DEFAULT_CODE = {
+  python: "import sys\n\ndef main():\n    data = sys.stdin.read().split()\n    # 在此编写你的解法\n    print()\n\nmain()\n",
+  cpp: "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    // 在此编写你的解法\n\n    return 0;\n}\n",
+};
+const MONACO_LANG = { python: "python", cpp: "cpp" };
+let currentLang = localStorage.getItem("cp_prog_lang") || "python";
+function defaultCode(lang) { return DEFAULT_CODE[lang] || DEFAULT_CODE.python; }
+function codeKey(lang) { return "cp_code_" + lang; }
+// 切换编程语言：各语言代码分桶保存，切换时换语法高亮并载入该语言的代码（无则用模板）
+function switchLang(lang) {
+  if (!DEFAULT_CODE[lang]) lang = "python";
+  const sel = $("#lang-select");
+  if (lang === currentLang) { if (sel) sel.value = currentLang; return; }
+  if (editor) localStorage.setItem(codeKey(currentLang), editor.getValue());   // 存旧语言的代码
+  currentLang = lang;
+  localStorage.setItem("cp_prog_lang", lang);
+  if (sel) sel.value = lang;
+  if (editor && window.monaco) {
+    monaco.editor.setModelLanguage(editor.getModel(), MONACO_LANG[lang] || "python");
+    const saved = localStorage.getItem(codeKey(lang));
+    editor.setValue(saved != null ? saved : defaultCode(lang));
+  }
+  const name = lang === "cpp" ? "C++" : "Python";
+  toast(isEn() ? ("Switched to " + name) : ("已切换到 " + name));
+}
 const AD_REWARD_PTS = 5;   // 看广告奖励算力点（与后端 AD_REWARD_POINTS 一致，仅前端展示）
 const AD_SECONDS = 8;      // 模拟激励广告倒计时秒数
 
@@ -182,8 +207,8 @@ require(["vs/editor/editor.main"], () => {
     },
   });
   editor = monaco.editor.create($("#editor"), {
-    value: "import sys\n\ndef main():\n    data = sys.stdin.read().split()\n    # 在此编写你的解法\n    print()\n\nmain()\n",
-    language: "python", theme: "arena", fontSize: 14, minimap: { enabled: false },
+    value: defaultCode(currentLang),
+    language: MONACO_LANG[currentLang] || "python", theme: "arena", fontSize: 14, minimap: { enabled: false },
     fontFamily: "JetBrains Mono, Consolas, monospace",
     automaticLayout: true, scrollBeyondLastLine: false, padding: { top: 12 },
     glyphMargin: true,   // 供导师审阅在出问题的行打批注图标
@@ -195,15 +220,17 @@ require(["vs/editor/editor.main"], () => {
   });
   registerPyCompletions();
   editor.onKeyDown(() => { tKeys++; lastActivityTs = Date.now(); });   // 仅计数，不记录按键内容
-  // 恢复上次代码
-  const savedCode = localStorage.getItem("cp_code");
-  if (savedCode) editor.setValue(savedCode);
-  // 自动保存（防抖）
+  // 恢复上次代码（按当前语言）
+  const savedCode = localStorage.getItem(codeKey(currentLang));
+  if (savedCode != null) editor.setValue(savedCode);
+  // 自动保存（防抖，按当前语言分桶）
   let codeTimer;
   editor.onDidChangeModelContent(() => {
     clearTimeout(codeTimer);
-    codeTimer = setTimeout(() => localStorage.setItem("cp_code", editor.getValue()), 500);
+    codeTimer = setTimeout(() => localStorage.setItem(codeKey(currentLang), editor.getValue()), 500);
   });
+  // 编辑器就绪后，让语言下拉与当前语言一致
+  const _ls = $("#lang-select"); if (_ls) _ls.value = currentLang;
   // 编辑器内快捷键
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runCode());
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => submitCode());
@@ -450,7 +477,7 @@ async function runCode() {
   try {
     const r = await fetch("/api/run", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, stdin }),
+      body: JSON.stringify({ code, stdin, language: currentLang }),
     }).then(r => r.json());
     if (r.status === "OK") $("#run-output").textContent = r.stdout || "(无输出)";
     else $("#run-output").textContent = `[${r.status}] ${r.stderr || ""}\n${r.stdout || ""}`;
@@ -556,7 +583,7 @@ async function startDebug() {
   let stepEl = null;
   try {
     await sseStream("/api/debug",
-      { problem: lastEval.problem, code: lastEval.code, counterexample: ce },
+      { problem: lastEval.problem, code: lastEval.code, counterexample: ce, language: currentLang },
       (ev) => {
         const d = ev.data || {};
         if (ev.event === "thought") {
@@ -1021,8 +1048,8 @@ async function loadProblemCode(pid) {
   try {
     const r = await fetch("/api/submissions?problem_id=" + encodeURIComponent(pid)).then(r => r.json());
     const last = (r.submissions || []).find(s => s.code && s.code.trim());
-    editor.setValue(last ? last.code : DEFAULT_CODE);
-  } catch (e) { editor.setValue(DEFAULT_CODE); }
+    editor.setValue(last ? last.code : defaultCode(currentLang));
+  } catch (e) { editor.setValue(defaultCode(currentLang)); }
 }
 
 /* ---------------- 题解聚合：本题的社群帖子 ---------------- */
@@ -1590,6 +1617,8 @@ function bind() {
   $("#btn-run").onclick = runCode;
   $("#btn-submit").onclick = submitCode;
   $("#btn-copy").onclick = copyCode;
+  const langSel = $("#lang-select");
+  if (langSel) { langSel.value = currentLang; langSel.onchange = () => switchLang(langSel.value); }
   $("#btn-hint").onclick = requestHint;
   $("#btn-chat").onclick = sendChat;
   $("#btn-quote").onclick = captureSelection;
