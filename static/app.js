@@ -1086,11 +1086,12 @@ function resetReportArea() {
   lastReport = null;
   const body = $("#report-body");
   if (body) {
+    const en = isEn();
     body.innerHTML = !currentUser
-      ? '<span class="empty-hint">登录后即可生成今日 AI 学习日报（Pro 功能）</span>'
+      ? `<span class="empty-hint">${en ? "Sign in to generate today's AI daily report (Pro)" : "登录后即可生成今日 AI 学习日报（Pro 功能）"}</span>`
       : (!currentBilling.is_pro
-          ? '<span class="empty-hint">每日 AI 学习日报是 Pro 功能 — 看广告免费得算力点或充值即可解锁</span>'
-          : '<span class="empty-hint">点「生成今日报告」，AI 全方位分析你今天的学习并可导出 PDF（Pro）</span>');
+          ? `<span class="empty-hint">${en ? "The AI daily report is a Pro feature — watch an ad for free credits or top up to unlock" : "每日 AI 学习日报是 Pro 功能 — 看广告免费得算力点或充值即可解锁"}</span>`
+          : `<span class="empty-hint">${t("dash.report.empty")}</span>`);
   }
   const dl = $("#btn-dl-report"), sh = $("#btn-share-report");
   if (dl) dl.classList.add("hidden");
@@ -1107,8 +1108,11 @@ async function genReport() {
     if (!r.ok) { $("#report-body").innerHTML = `<span class="empty-hint">${esc(data.error || "生成失败")}</span>`; $("#btn-dl-report").classList.add("hidden"); return; }
     lastReport = data;
     const st = data.stats || {};
+    const rs = isEn()
+      ? `📅 ${esc(data.date)} ｜ attempted ${st.attempted} · solved ${st.ac} · AI calls ${st.llm_calls}`
+      : `📅 ${esc(data.date)} ｜ 尝试 ${st.attempted} · 通过 ${st.ac} · AI互动 ${st.llm_calls} 次`;
     $("#report-body").innerHTML =
-      `<div class="r-stats">📅 ${esc(data.date)} ｜ 尝试 ${st.attempted} · 通过 ${st.ac} · AI互动 ${st.llm_calls} 次</div>` +
+      `<div class="r-stats">${rs}</div>` +
       `<div class="r-narr">${marked.parse(data.narrative || "")}</div>`;
     $("#btn-dl-report").classList.remove("hidden");
     $("#btn-share-report").classList.remove("hidden");
@@ -1393,7 +1397,9 @@ function renderHeatmap(daily, activeDays) {
   }
   if (monthsEl) { monthsEl.style.gridTemplateColumns = `repeat(${WEEKS},13px)`; monthsEl.innerHTML = months; }
   const sub = $("#cal-sub");
-  if (sub) sub.textContent = `近一年 ${total} 次提交 · 活跃 ${activeDays} 天`;
+  if (sub) sub.textContent = isEn()
+    ? `${total} submissions · ${activeDays} active days in the past year`
+    : `近一年 ${total} 次提交 · 活跃 ${activeDays} 天`;
 }
 function drawChart(key, canvasId, cfg) {
   if (charts[key]) charts[key].destroy();
