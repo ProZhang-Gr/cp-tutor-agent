@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ARENA 宣传海报 · 竖版</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ARENA 宣传海报（竖版 1242×2208）
+   ★ 想改文案：直接改下面 <body> 里的文字
+   ★ 想改配色：只改这块 :root 里的颜色变量即可
+   ★ 导出：浏览器打开 → 右键/Ctrl+P 打印成 PDF，或截图（建议 2 倍清晰度）
+   ============================================================ */
+:root{
+  --paper:#FCF6EA;        /* 暖米白主底 */
+  --paper2:#F6ECD8;       /* 略深的米色，用于卡片 */
+  --ink:#2E2A22;          /* 主文字（浓咖啡墨） */
+  --ink-soft:#7A7060;     /* 次要文字 */
+  --orange:#E8853A;       /* 主强调：暖阳橙金 */
+  --orange-deep:#CF6A1E;  /* 深一档橙，用于描边/阴影 */
+  --teal:#1F6F66;         /* 点缀：深青 */
+  --teal-deep:#134A43;    /* 更深的青 */
+  --gold:#C79A3E;         /* 细金线 */
+  --line:#E7DBC2;         /* 浅描边 */
+  --serif:"Noto Serif SC","Source Han Serif SC","Songti SC",Georgia,serif;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  --mono:"JetBrains Mono","Cascadia Code","SF Mono",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#d8cdb4}
+/* 海报画布：固定 1242×2208，便于截图/打印对齐 */
+.poster{
+  position:relative;width:1242px;height:2208px;margin:0 auto;overflow:hidden;
+  background:
+    radial-gradient(1100px 760px at 78% 4%, rgba(232,133,58,.22), transparent 58%),
+    radial-gradient(900px 620px at 6% 30%, rgba(31,111,102,.10), transparent 60%),
+    var(--paper);
+  color:var(--ink);font-family:var(--sans);
+  padding:92px 96px 76px;display:flex;flex-direction:column;
+}
+/* 右上角的暖阳光晕（招牌氛围，刻意只在这一处用力） */
+.sun{position:absolute;top:-160px;right:-140px;width:620px;height:620px;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%, rgba(232,133,58,.34), rgba(232,133,58,.10) 46%, transparent 70%);
+  filter:blur(2px);pointer-events:none}
+
+/* ---------- 顶部：眉标 + 字标 ---------- */
+.eyebrow{font-family:var(--mono);font-size:26px;letter-spacing:.04em;color:var(--teal);
+  display:flex;align-items:center;gap:14px;margin-bottom:30px}
+.eyebrow .dot{width:11px;height:11px;border-radius:50%;background:var(--orange);
+  box-shadow:0 0 0 6px rgba(232,133,58,.18)}
+.eyebrow .live{color:var(--ink-soft)}
+
+.wordmark{font-family:var(--serif);font-weight:900;font-size:150px;line-height:.92;
+  letter-spacing:.05em;color:var(--ink);position:relative;display:inline-block}
+.wordmark::after{content:"";display:block;width:188px;height:12px;margin-top:18px;
+  background:var(--teal);border-radius:3px}
+.brand-sub{font-family:var(--sans);font-weight:500;font-size:32px;color:var(--ink-soft);
+  letter-spacing:.32em;margin-top:22px}
+
+/* ---------- 主标题 ---------- */
+.headline{font-family:var(--serif);font-weight:700;font-size:94px;line-height:1.12;
+  margin-top:38px;letter-spacing:.01em}
+.headline .ac{color:var(--teal);position:relative;white-space:nowrap}
+.headline .ac .check{display:inline-block;margin-left:14px;color:var(--orange);
+  transform:translateY(4px)}
+.headline .hl{background:linear-gradient(transparent 64%, rgba(232,133,58,.34) 64%)}
+.subhead{font-size:34px;line-height:1.55;color:var(--ink-soft);margin-top:22px;max-width:980px}
+
+/* ---------- 招牌：判题结果卡 ---------- */
+.verdict{margin-top:34px;background:var(--paper2);border:1.5px solid var(--line);
+  border-radius:22px;padding:30px 40px;position:relative;
+  box-shadow:0 24px 60px rgba(46,42,34,.10)}
+.verdict::before{content:"";position:absolute;left:0;top:26px;bottom:26px;width:7px;
+  background:var(--teal);border-radius:0 6px 6px 0}
+.verdict-top{display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--mono);font-size:24px;color:var(--ink-soft);margin-bottom:26px}
+.verdict-top .lights{display:flex;gap:10px}
+.verdict-top .lights i{width:16px;height:16px;border-radius:50%;display:inline-block}
+.lights i:nth-child(1){background:#E06A52}.lights i:nth-child(2){background:var(--gold)}
+.lights i:nth-child(3){background:var(--teal)}
+.verdict-main{display:flex;align-items:baseline;justify-content:space-between}
+.verdict-main .v{font-family:var(--serif);font-weight:900;font-size:64px;color:var(--teal);
+  letter-spacing:.01em}
+.verdict-main .v .ck{color:var(--orange);margin-left:10px}
+.verdict-main .ms{font-family:var(--mono);font-size:30px;color:var(--ink-soft)}
+.verdict-tests{display:flex;align-items:center;gap:18px;margin-top:22px}
+.cases{display:flex;gap:9px}
+.cases span{width:30px;height:30px;border-radius:7px;background:var(--teal);
+  box-shadow:inset 0 -3px 0 rgba(0,0,0,.08)}
+.cases span:last-child{background:var(--orange)}
+.verdict-tests .pass{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--ink)}
+.verdict-cap{font-family:var(--mono);font-size:23px;color:var(--ink-soft);margin-top:18px}
+
+/* ---------- 功能网格 ---------- */
+.features{margin-top:auto;padding-top:34px;display:grid;grid-template-columns:1fr 1fr;
+  gap:24px 40px}
+.feat{display:flex;gap:20px;align-items:flex-start}
+.feat .ic{flex:0 0 auto;width:62px;height:62px;border-radius:16px;display:grid;place-items:center;
+  font-size:30px;background:rgba(31,111,102,.10);color:var(--teal);border:1.5px solid rgba(31,111,102,.22)}
+.feat:nth-child(even) .ic{background:rgba(232,133,58,.12);color:var(--orange-deep);
+  border-color:rgba(232,133,58,.28)}
+.feat h3{font-size:38px;font-weight:700;letter-spacing:.01em;line-height:1.2}
+.feat p{font-size:25px;color:var(--ink-soft);line-height:1.5;margin-top:8px}
+
+/* ---------- 数据条 ---------- */
+.strip{margin-top:32px;display:flex;justify-content:space-between;gap:18px;
+  border-top:2px solid var(--line);border-bottom:2px solid var(--line);padding:24px 4px}
+.stat{text-align:center;flex:1}
+.stat .n{font-family:var(--serif);font-weight:900;font-size:60px;color:var(--orange-deep);line-height:1}
+.stat .l{font-size:24px;color:var(--ink-soft);margin-top:10px;letter-spacing:.02em}
+.stat + .stat{border-left:2px solid var(--line)}
+
+/* ---------- 行动召唤 + 二维码 ---------- */
+.cta{margin-top:32px;display:flex;align-items:center;justify-content:space-between;gap:40px}
+.cta-text .k{font-family:var(--serif);font-weight:700;font-size:52px;line-height:1.2}
+.cta-text .k em{color:var(--orange-deep);font-style:normal}
+.cta-text .u{font-family:var(--mono);font-size:34px;color:var(--teal);margin-top:18px;
+  letter-spacing:.01em}
+.cta-text .note{font-size:25px;color:var(--ink-soft);margin-top:12px}
+.qr{flex:0 0 auto;width:268px;height:268px;background:#fff;border-radius:20px;
+  padding:20px;border:1.5px solid var(--line);box-shadow:0 18px 44px rgba(46,42,34,.12)}
+.qr svg{width:100%;height:100%;display:block}
+.qr-fallback{width:100%;height:100%;display:grid;place-items:center;color:var(--ink-soft);
+  font-family:var(--mono);font-size:22px;text-align:center;border:2px dashed var(--line);border-radius:10px}
+
+/* ---------- 页脚 ---------- */
+.foot{margin-top:22px;font-family:var(--mono);font-size:22px;color:var(--ink-soft);
+  display:flex;justify-content:space-between;align-items:center;gap:16px}
+.foot .gh{color:var(--teal)}
+.foot .gh b{color:var(--orange-deep);font-weight:700;margin-right:8px}
+</style>
+</head>
+<body>
+<div class="poster">
+  <div class="sun"></div>
+
+  <!-- 顶部：眉标 + 字标 -->
+  <div class="eyebrow">
+    <span class="dot"></span><span>// 算法竞赛 · AI 陪练</span><span class="live">● 公测进行中</span>
+  </div>
+  <div class="wordmark">ARENA</div>
+  <div class="brand-sub">算法竞赛辅导智能体</div>
+
+  <!-- 主标题 -->
+  <h1 class="headline">
+    把每一道算法题，<br>
+    练到 <span class="ac">Accepted<span class="check">✓</span></span>
+  </h1>
+  <p class="subhead">五个智能体陪你从<span class="hl">读题、写码、判题到调试</span>，一步步把难题练通——不只给答案，更陪你想明白。</p>
+
+  <!-- 招牌：判题结果卡 -->
+  <div class="verdict">
+    <div class="verdict-top">
+      <span class="lights"><i></i><i></i><i></i></span>
+      <span>judge · result</span>
+    </div>
+    <div class="verdict-main">
+      <span class="v">Accepted<span class="ck">✓</span></span>
+      <span class="ms">runtime 92 ms</span>
+    </div>
+    <div class="verdict-tests">
+      <span class="cases"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span>
+      <span class="pass">10 / 10 通过</span>
+    </div>
+    <div class="verdict-cap">// 双轨判题 —— 真题真值校验 + 智能对拍差分，没有标程也能抓反例</div>
+  </div>
+
+  <!-- 功能网格 -->
+  <div class="features">
+    <div class="feat"><div class="ic">⊞</div><div><h3>双轨判题</h3><p>真题真值 + 暴力对拍，自动定位出错用例</p></div></div>
+    <div class="feat"><div class="ic">◇</div><div><h3>五智能体协作</h3><p>分析 · 审阅 · 判题 · 调试 · 导师，各司其职</p></div></div>
+    <div class="feat"><div class="ic">◷</div><div><h3>算法可视化</h3><p>排序 / BFS / DP 动画，把抽象讲成直观</p></div></div>
+    <div class="feat"><div class="ic">✦</div><div><h3>苏格拉底导师</h3><p>不直接给答案，一步步把你问通</p></div></div>
+    <div class="feat"><div class="ic">⌨</div><div><h3>Python / C++</h3><p>编辑器里真编译、真运行，即时反馈</p></div></div>
+    <div class="feat"><div class="ic">◍</div><div><h3>因材施教</h3><p>记录薄弱点越练越懂你，配社群互助答疑</p></div></div>
+  </div>
+
+  <!-- 数据条 -->
+  <div class="strip">
+    <div class="stat"><div class="n">5</div><div class="l">协作智能体</div></div>
+    <div class="stat"><div class="n">2</div><div class="l">判题双轨</div></div>
+    <div class="stat"><div class="n">免登录</div><div class="l">即开即练</div></div>
+    <div class="stat"><div class="n">双语</div><div class="l">中 / English</div></div>
+  </div>
+
+  <!-- 行动召唤 + 二维码 -->
+  <div class="cta">
+    <div class="cta-text">
+      <div class="k">打开网址，<em>免登录</em>就能开练</div>
+      <div class="u">cp-tutor-agent.onrender.com</div>
+      <div class="note">推荐使用电脑浏览器访问体验 · 移动端适配中</div>
+    </div>
+    <div class="qr" id="qr"><svg viewBox="-2 -2 33 33" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><rect x="-2" y="-2" width="33" height="33" fill="#ffffff"/><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM9 0h1v1h-1zM11 0h1v1h-1zM12 0h1v1h-1zM14 0h1v1h-1zM17 0h1v1h-1zM18 0h1v1h-1zM19 0h1v1h-1zM20 0h1v1h-1zM22 0h1v1h-1zM23 0h1v1h-1zM24 0h1v1h-1zM25 0h1v1h-1zM26 0h1v1h-1zM27 0h1v1h-1zM28 0h1v1h-1zM0 1h1v1h-1zM6 1h1v1h-1zM8 1h1v1h-1zM9 1h1v1h-1zM12 1h1v1h-1zM13 1h1v1h-1zM18 1h1v1h-1zM19 1h1v1h-1zM22 1h1v1h-1zM28 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM15 2h1v1h-1zM18 2h1v1h-1zM22 2h1v1h-1zM24 2h1v1h-1zM25 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM9 3h1v1h-1zM12 3h1v1h-1zM13 3h1v1h-1zM18 3h1v1h-1zM19 3h1v1h-1zM20 3h1v1h-1zM22 3h1v1h-1zM24 3h1v1h-1zM25 3h1v1h-1zM26 3h1v1h-1zM28 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM11 4h1v1h-1zM13 4h1v1h-1zM16 4h1v1h-1zM17 4h1v1h-1zM18 4h1v1h-1zM19 4h1v1h-1zM22 4h1v1h-1zM24 4h1v1h-1zM25 4h1v1h-1zM26 4h1v1h-1zM28 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM14 5h1v1h-1zM15 5h1v1h-1zM16 5h1v1h-1zM18 5h1v1h-1zM19 5h1v1h-1zM22 5h1v1h-1zM28 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h1v1h-1zM23 6h1v1h-1zM24 6h1v1h-1zM25 6h1v1h-1zM26 6h1v1h-1zM27 6h1v1h-1zM28 6h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM15 7h1v1h-1zM16 7h1v1h-1zM17 7h1v1h-1zM18 7h1v1h-1zM20 7h1v1h-1zM0 8h1v1h-1zM2 8h1v1h-1zM4 8h1v1h-1zM6 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM15 8h1v1h-1zM16 8h1v1h-1zM17 8h1v1h-1zM19 8h1v1h-1zM20 8h1v1h-1zM24 8h1v1h-1zM27 8h1v1h-1zM1 9h1v1h-1zM2 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM13 9h1v1h-1zM16 9h1v1h-1zM20 9h1v1h-1zM22 9h1v1h-1zM25 9h1v1h-1zM28 9h1v1h-1zM0 10h1v1h-1zM1 10h1v1h-1zM2 10h1v1h-1zM3 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM14 10h1v1h-1zM17 10h1v1h-1zM21 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM26 10h1v1h-1zM27 10h1v1h-1zM28 10h1v1h-1zM0 11h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM16 11h1v1h-1zM17 11h1v1h-1zM19 11h1v1h-1zM20 11h1v1h-1zM27 11h1v1h-1zM0 12h1v1h-1zM2 12h1v1h-1zM4 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM9 12h1v1h-1zM11 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM16 12h1v1h-1zM17 12h1v1h-1zM20 12h1v1h-1zM21 12h1v1h-1zM22 12h1v1h-1zM23 12h1v1h-1zM25 12h1v1h-1zM27 12h1v1h-1zM28 12h1v1h-1zM1 13h1v1h-1zM3 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM14 13h1v1h-1zM16 13h1v1h-1zM17 13h1v1h-1zM18 13h1v1h-1zM20 13h1v1h-1zM22 13h1v1h-1zM25 13h1v1h-1zM28 13h1v1h-1zM1 14h1v1h-1zM2 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM10 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM17 14h1v1h-1zM18 14h1v1h-1zM21 14h1v1h-1zM22 14h1v1h-1zM23 14h1v1h-1zM24 14h1v1h-1zM25 14h1v1h-1zM27 14h1v1h-1zM28 14h1v1h-1zM2 15h1v1h-1zM4 15h1v1h-1zM5 15h1v1h-1zM9 15h1v1h-1zM17 15h1v1h-1zM20 15h1v1h-1zM21 15h1v1h-1zM24 15h1v1h-1zM25 15h1v1h-1zM27 15h1v1h-1zM1 16h1v1h-1zM2 16h1v1h-1zM6 16h1v1h-1zM7 16h1v1h-1zM8 16h1v1h-1zM9 16h1v1h-1zM10 16h1v1h-1zM11 16h1v1h-1zM16 16h1v1h-1zM17 16h1v1h-1zM20 16h1v1h-1zM21 16h1v1h-1zM22 16h1v1h-1zM25 16h1v1h-1zM27 16h1v1h-1zM28 16h1v1h-1zM5 17h1v1h-1zM7 17h1v1h-1zM10 17h1v1h-1zM13 17h1v1h-1zM16 17h1v1h-1zM17 17h1v1h-1zM20 17h1v1h-1zM21 17h1v1h-1zM22 17h1v1h-1zM23 17h1v1h-1zM25 17h1v1h-1zM26 17h1v1h-1zM28 17h1v1h-1zM0 18h1v1h-1zM3 18h1v1h-1zM6 18h1v1h-1zM7 18h1v1h-1zM8 18h1v1h-1zM10 18h1v1h-1zM11 18h1v1h-1zM12 18h1v1h-1zM14 18h1v1h-1zM16 18h1v1h-1zM21 18h1v1h-1zM24 18h1v1h-1zM27 18h1v1h-1zM28 18h1v1h-1zM1 19h1v1h-1zM3 19h1v1h-1zM8 19h1v1h-1zM10 19h1v1h-1zM13 19h1v1h-1zM14 19h1v1h-1zM16 19h1v1h-1zM17 19h1v1h-1zM18 19h1v1h-1zM19 19h1v1h-1zM22 19h1v1h-1zM23 19h1v1h-1zM25 19h1v1h-1zM27 19h1v1h-1zM0 20h1v1h-1zM3 20h1v1h-1zM5 20h1v1h-1zM6 20h1v1h-1zM8 20h1v1h-1zM9 20h1v1h-1zM10 20h1v1h-1zM11 20h1v1h-1zM14 20h1v1h-1zM15 20h1v1h-1zM16 20h1v1h-1zM17 20h1v1h-1zM20 20h1v1h-1zM21 20h1v1h-1zM22 20h1v1h-1zM23 20h1v1h-1zM24 20h1v1h-1zM8 21h1v1h-1zM10 21h1v1h-1zM11 21h1v1h-1zM14 21h1v1h-1zM19 21h1v1h-1zM20 21h1v1h-1zM24 21h1v1h-1zM26 21h1v1h-1zM27 21h1v1h-1zM28 21h1v1h-1zM0 22h1v1h-1zM1 22h1v1h-1zM2 22h1v1h-1zM3 22h1v1h-1zM4 22h1v1h-1zM5 22h1v1h-1zM6 22h1v1h-1zM9 22h1v1h-1zM13 22h1v1h-1zM16 22h1v1h-1zM17 22h1v1h-1zM19 22h1v1h-1zM20 22h1v1h-1zM22 22h1v1h-1zM24 22h1v1h-1zM25 22h1v1h-1zM27 22h1v1h-1zM28 22h1v1h-1zM0 23h1v1h-1zM6 23h1v1h-1zM9 23h1v1h-1zM17 23h1v1h-1zM20 23h1v1h-1zM24 23h1v1h-1zM25 23h1v1h-1zM28 23h1v1h-1zM0 24h1v1h-1zM2 24h1v1h-1zM3 24h1v1h-1zM4 24h1v1h-1zM6 24h1v1h-1zM8 24h1v1h-1zM10 24h1v1h-1zM17 24h1v1h-1zM20 24h1v1h-1zM21 24h1v1h-1zM22 24h1v1h-1zM23 24h1v1h-1zM24 24h1v1h-1zM28 24h1v1h-1zM0 25h1v1h-1zM2 25h1v1h-1zM3 25h1v1h-1zM4 25h1v1h-1zM6 25h1v1h-1zM11 25h1v1h-1zM12 25h1v1h-1zM16 25h1v1h-1zM17 25h1v1h-1zM24 25h1v1h-1zM26 25h1v1h-1zM27 25h1v1h-1zM28 25h1v1h-1zM0 26h1v1h-1zM2 26h1v1h-1zM3 26h1v1h-1zM4 26h1v1h-1zM6 26h1v1h-1zM8 26h1v1h-1zM9 26h1v1h-1zM10 26h1v1h-1zM11 26h1v1h-1zM12 26h1v1h-1zM13 26h1v1h-1zM19 26h1v1h-1zM21 26h1v1h-1zM23 26h1v1h-1zM24 26h1v1h-1zM25 26h1v1h-1zM28 26h1v1h-1zM0 27h1v1h-1zM6 27h1v1h-1zM13 27h1v1h-1zM14 27h1v1h-1zM15 27h1v1h-1zM16 27h1v1h-1zM17 27h1v1h-1zM19 27h1v1h-1zM20 27h1v1h-1zM21 27h1v1h-1zM24 27h1v1h-1zM27 27h1v1h-1zM0 28h1v1h-1zM1 28h1v1h-1zM2 28h1v1h-1zM3 28h1v1h-1zM4 28h1v1h-1zM5 28h1v1h-1zM6 28h1v1h-1zM8 28h1v1h-1zM9 28h1v1h-1zM10 28h1v1h-1zM12 28h1v1h-1zM14 28h1v1h-1zM16 28h1v1h-1zM17 28h1v1h-1zM20 28h1v1h-1zM24 28h1v1h-1zM27 28h1v1h-1zM28 28h1v1h-1z" fill="#1b1712"/></svg></div>
+  </div>
+
+  <!-- 页脚 -->
+  <div class="foot">
+    <span>© 2026 ARENA · 算法竞赛辅导智能体</span>
+    <span class="gh"><b>GitHub</b>github.com/ProZhang-Gr/cp-tutor-agent</span>
+  </div>
+</div>
+</body>
+</html>

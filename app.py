@@ -47,6 +47,12 @@ if not settings.DEEPSEEK_API_KEY:
     print("[startup] 警告：未检测到 DEEPSEEK_API_KEY（环境变量或 .deepseek_key 文件均为空），"
           "所有 LLM 功能将报错。请配置后重启。")
 
+# 管理后台默认弱口令告警：仓库里写死的 manager/123456 是公开可见的，生产务必用
+# 环境变量 ADMIN_USER / ADMIN_PASS 覆盖，否则任何人都能进 /admin 后台。
+if admin.USING_DEFAULT_CREDS:
+    print("[startup] 安全警告：管理后台仍在使用默认账号 manager/123456（公开仓库可见）！"
+          "生产环境请在平台环境变量里设 ADMIN_USER / ADMIN_PASS 覆盖，并固定 SECRET_KEY。")
+
 COOKIE = "arena_session"
 
 
@@ -767,11 +773,20 @@ def _require_admin(token):
 
 @app.post("/api/admin/login")
 def admin_login(req: AdminLoginReq, request: Request, resp: Response):
-    ok, msg = guard.rate_limit_only(_ip(request))   # 限流防口令爆破
+    ip = _ip(request)
+    ok, msg = guard.rate_limit_only(ip)             # 全站限流
     if not ok:
         return JSONResponse({"error": msg}, status_code=429)
+    if admin.login_locked(ip):                       # 专属爆破锁定（更严格）
+        return JSONResponse(
+            {"error": "登录失败次数过多，管理员登录已临时锁定，请约 10 分钟后再试。"},
+            status_code=429)
     if not admin.verify(req.username, req.password):
+        admin.note_login_fail(ip)
+        guard.log_event(None, ip, "admin_login_fail")   # 失败入审计，monitor.py 可见
         return JSONResponse({"error": "管理员账号或密码错误"}, status_code=401)
+    admin.clear_login_fails(ip)
+    guard.log_event(None, ip, "admin_login")            # 成功登录入审计
     resp.set_cookie(ADMIN_COOKIE, admin.make_token(), httponly=True, samesite="lax",
                     secure=settings.COOKIE_SECURE, max_age=12 * 3600)
     return {"ok": True}

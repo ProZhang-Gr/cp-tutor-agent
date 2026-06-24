@@ -16,6 +16,7 @@ import hmac
 import os
 import platform
 import time
+from collections import defaultdict, deque
 from datetime import datetime
 
 from sqlalchemy import delete, func, select, update
@@ -32,9 +33,18 @@ START_TS = time.time()
 
 ADMIN_USER = os.getenv("ADMIN_USER", "manager")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "123456")
+# 是否仍在用仓库里写死的默认弱口令（公开仓库可见）：启动时据此醒目告警，提醒改 env。
+USING_DEFAULT_CREDS = (ADMIN_USER == "manager" and ADMIN_PASS == "123456")
 
 _SECRET = settings.SECRET_KEY.encode()
 _TOKEN_TTL = 12 * 3600          # 管理态有效期（秒）
+
+# 登录爆破防护：按 IP 记失败时间戳，窗口内失败达上限即临时锁定（独立于全站限流，
+# 更严格，专挡管理口令穷举）。内存态、单实例即够。
+_ADMIN_MAX_FAILS = 6
+_ADMIN_FAIL_WINDOW = 600        # 统计窗口（秒）
+_ADMIN_LOCK_SECONDS = 600       # 触发上限后的锁定时长（秒）
+_fails = defaultdict(deque)
 
 
 # ---------------- 鉴权 ----------------
@@ -43,6 +53,31 @@ def verify(username, password):
     u_ok = hmac.compare_digest((username or "").encode(), ADMIN_USER.encode())
     p_ok = hmac.compare_digest((password or "").encode(), ADMIN_PASS.encode())
     return u_ok and p_ok
+
+
+def _prune(ip, now):
+    q = _fails[ip]
+    while q and now - q[0] > _ADMIN_FAIL_WINDOW:
+        q.popleft()
+    return q
+
+
+def login_locked(ip):
+    """该 IP 是否因连续失败被临时锁定。"""
+    now = time.time()
+    q = _prune(ip, now)
+    if len(q) >= _ADMIN_MAX_FAILS:
+        # 最近一次失败起算锁定时长；超过则解锁
+        return (now - q[-1]) < _ADMIN_LOCK_SECONDS
+    return False
+
+
+def note_login_fail(ip):
+    _fails[ip].append(time.time())
+
+
+def clear_login_fails(ip):
+    _fails.pop(ip, None)
 
 
 def make_token():
