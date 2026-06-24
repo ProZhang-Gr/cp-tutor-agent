@@ -995,3 +995,90 @@ body.resizing *{cursor:col-resize!important;user-select:none}
 @media(max-width:720px){
   .eg-grid{grid-template-columns:repeat(2,1fr)}
 }
+
+/* ====================================================================
+   新手引导（聚光浮层）+ 系统公告
+=================================================================== */
+/* 引导浮层：聚光高亮目标，其余压暗一点 */
+#guide-overlay{position:fixed;inset:0;z-index:9000;pointer-events:auto}
+#guide-overlay.full{background:rgba(28,24,18,.58)}      /* 无目标步：整屏压暗 */
+#guide-spot{position:fixed;border-radius:10px;pointer-events:none;
+  box-shadow:0 0 0 9999px rgba(28,24,18,.55), 0 0 0 2px var(--accent), 0 0 0 6px rgba(31,111,102,.25);
+  transition:left .25s ease,top .25s ease,width .25s ease,height .25s ease}
+#guide-card{position:fixed;width:340px;max-width:88vw;background:var(--paper);
+  border:1px solid var(--line);border-radius:var(--r);box-shadow:0 18px 50px rgba(40,36,28,.28);
+  padding:18px 20px;z-index:9001;animation:rise .25s ease}
+.guide-step{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:1px;
+  color:var(--accent);background:var(--accent-tint);display:inline-block;padding:2px 9px;border-radius:20px;margin-bottom:10px}
+#guide-card h3{font-family:var(--font-display);font-weight:600;font-size:18px;color:var(--ink);margin-bottom:8px}
+#guide-card p{font-size:13.5px;line-height:1.65;color:var(--ink-dim)}
+.guide-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px}
+.guide-skip{font-size:12px;color:var(--ink-mute);background:none;border:none;cursor:pointer;text-decoration:underline;padding:4px}
+.guide-skip:hover{color:var(--ink-dim)}
+.guide-nav{display:flex;gap:8px}
+.guide-btn{font-family:var(--font-body);font-size:13px;font-weight:500;padding:8px 16px;border-radius:var(--r-sm);
+  cursor:pointer;border:1px solid var(--line);transition:.16s}
+.guide-btn.ghost{background:var(--tint);color:var(--ink-dim)}
+.guide-btn.ghost:hover{color:var(--ink);border-color:var(--ink-mute)}
+.guide-btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.guide-btn.primary:hover{background:var(--accent-strong)}
+
+/* 顶栏公告铃铛 */
+.announce-btn{position:relative;margin-left:10px;font-size:15px;line-height:1;padding:5px 8px;
+  background:var(--tint);border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;transition:.18s}
+.announce-btn:hover{border-color:var(--accent);background:var(--accent-tint)}
+.announce-dot{position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;
+  background:var(--bad);border:1.5px solid var(--paper);display:none}
+
+/* 公告弹窗 */
+.modal-announce{width:540px;max-width:94vw;text-align:left}
+.announce-h{font-family:var(--font-display);font-weight:600;font-size:18px;color:var(--ink);margin-bottom:14px}
+.announce-list{display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow:auto;margin-bottom:16px}
+.announce-item{border:1px solid var(--line);border-radius:var(--r-sm);padding:13px 15px;background:var(--tint)}
+.announce-item.unread{border-left:3px solid var(--accent);background:var(--accent-tint)}
+.announce-top{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.announce-tag{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--accent);
+  background:var(--paper);border:1px solid var(--line);padding:2px 8px;border-radius:20px}
+.announce-date{font-family:var(--font-mono);font-size:11px;color:var(--ink-mute)}
+.announce-new{font-size:10px;font-weight:700;color:var(--bad);margin-left:auto;letter-spacing:.5px}
+.announce-title{font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--ink);margin-bottom:5px}
+.announce-body{font-size:13px;line-height:1.65;color:var(--ink-dim)}
+
+/* ====================================================================
+   主题切换：舒适(默认/暖) · 白天(白) · 夜间(黑)
+   只覆盖设计变量，组件样式不动，整站随之变色。
+=================================================================== */
+.theme-toggle{font-size:14px;line-height:1;margin-left:14px;padding:5px 9px;border-radius:var(--r-sm);
+  cursor:pointer;background:var(--tint);border:1px solid var(--line);transition:.18s}
+.theme-toggle:hover{border-color:var(--accent);background:var(--accent-tint)}
+
+/* 白天 · 干净白 */
+html[data-theme="light"]{
+  --bg:#F4F5F7; --paper:#FFFFFF; --surface2:#EEF0F3; --tint:#F1F3F6; --field:#FFFFFF;
+  --ink:#1F2329; --ink-dim:#586069; --ink-mute:#8B949E;
+  --line:#E4E7EB; --line-soft:#EDEFF2;
+  --accent:#1F7A6E; --accent-strong:#155F55; --accent-tint:rgba(31,122,110,.10); --accent-ink:#FFFFFF;
+  --gold:#B8860B; --ok:#2F9E5B; --bad:#D14836; --warn:#C08A1E; --info:#2F6FBA; --violet:#7A5AD0;
+  --code-bg:#1E2127; --code-fg:#E8EAED;
+  --shadow:0 4px 18px rgba(20,30,40,.08),0 1px 3px rgba(20,30,40,.05);
+  --shadow-sm:0 2px 9px rgba(20,30,40,.07);
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb{background:#cdd2d8;border:2px solid var(--bg)}
+html[data-theme="light"] .grain{opacity:0}
+html[data-theme="light"] .topbar{background:rgba(255,255,255,.86)}
+
+/* 夜间 · 沉稳黑 */
+html[data-theme="dark"]{
+  --bg:#15171C; --paper:#1D2026; --surface2:#23272E; --tint:#252A31; --field:#1A1D23;
+  --ink:#E7E3D9; --ink-dim:#AEB4BC; --ink-mute:#7A828C;
+  --line:#2E333B; --line-soft:#282D34;
+  --accent:#5FB3A1; --accent-strong:#7BC8B7; --accent-tint:rgba(95,179,161,.14); --accent-ink:#10211E;
+  --gold:#D9AE54; --ok:#5FB97C; --bad:#E0705A; --warn:#D9AE54; --info:#6BA3DC; --violet:#9F86DC;
+  --code-bg:#15171C; --code-fg:#E8E2D4;
+  --shadow:0 8px 28px rgba(0,0,0,.45),0 1px 3px rgba(0,0,0,.4);
+  --shadow-sm:0 3px 12px rgba(0,0,0,.4);
+}
+html[data-theme="dark"] ::-webkit-scrollbar-thumb{background:#3a4049;border:2px solid var(--bg)}
+html[data-theme="dark"] .grain{opacity:.05;mix-blend-mode:overlay}
+/* 夜间下顶栏半透明底改深色，避免发白 */
+html[data-theme="dark"] .topbar{background:rgba(29,32,38,.82)}

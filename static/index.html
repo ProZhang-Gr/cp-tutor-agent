@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARENA · 算法竞赛辅导智能体</title>
+<!-- 尽早套用保存的主题（白天/夜间/舒适），避免首屏闪烁 -->
+<script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("cp_theme")||"comfort")}catch(e){}</script>
 
 <!-- 字体经 jsdelivr/@fontsource（国内可达），不依赖 Google Fonts -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/fraunces@5.0.21/400.css">
@@ -35,6 +37,7 @@
     <button class="tab" data-view="dashboard" data-i18n="tab.dashboard">[ 学习仪表盘 ]</button>
   </nav>
   <div class="status" id="conn-status"><span class="dot"></span> <span data-i18n="status.online">MODEL ONLINE</span></div>
+  <button class="theme-toggle" id="theme-toggle" title="切换主题">🛋</button>
   <button class="lang-toggle" id="lang-toggle" data-i18n="lang.toggle" data-i18n-title="lang.toggle.title" title="Switch to English">EN</button>
   <div class="auth-area" id="auth-area"></div>
 </header>
@@ -502,5 +505,7 @@
 <script src="/app.js"></script>
 <script src="/viz.js"></script>
 <script src="/community.js"></script>
+<!-- 新手引导 + 系统公告：依赖 window.t / window.esc / I18N，放最后加载 -->
+<script src="/guide.js"></script>
 </body>
 </html>

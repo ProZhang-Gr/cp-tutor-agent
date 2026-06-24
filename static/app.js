@@ -2104,6 +2104,7 @@ window.addEventListener("langchange", () => {
   relabelAgents();
   renderAuthArea();
   renderAdaptiveNote();
+  applyTheme(currentTheme());   // 主题按钮标题随语言更新
   if ($("#view-dashboard").classList.contains("active")) {
     renderProfilePanel();
     renderAchievements();
@@ -2111,6 +2112,30 @@ window.addEventListener("langchange", () => {
 });
 const _langBtn = $("#lang-toggle");
 if (_langBtn) _langBtn.onclick = () => window.I18N && window.I18N.toggle();
+
+/* ---------------- 主题切换：舒适 / 白天 / 夜间 ---------------- */
+const THEMES = ["comfort", "light", "dark"];
+const THEME_ICON = { comfort: "🛋", light: "☀️", dark: "🌙" };
+const THEME_LABEL = { zh: { comfort: "舒适", light: "白天", dark: "夜间" },
+                      en: { comfort: "Comfort", light: "Day", dark: "Night" } };
+function currentTheme() { return document.documentElement.getAttribute("data-theme") || "comfort"; }
+function applyTheme(name) {
+  if (THEMES.indexOf(name) < 0) name = "comfort";
+  document.documentElement.setAttribute("data-theme", name);
+  try { localStorage.setItem("cp_theme", name); } catch (e) {}
+  const btn = $("#theme-toggle");
+  if (btn) {
+    btn.textContent = THEME_ICON[name];
+    const lbl = THEME_LABEL[isEn() ? "en" : "zh"][name];
+    btn.title = isEn() ? ("Theme: " + lbl + " · click to switch") : ("主题：" + lbl + " · 点击切换");
+  }
+}
+function cycleTheme() {
+  applyTheme(THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length]);
+}
+const _themeBtn = $("#theme-toggle");
+if (_themeBtn) _themeBtn.onclick = cycleTheme;
+applyTheme(currentTheme());   // 同步按钮图标/标题（data-theme 已由 head 内联脚本设好）
 
 /* ---------------- 启动 ---------------- */
 initAgentTeam();
