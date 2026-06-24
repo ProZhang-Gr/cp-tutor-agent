@@ -15,8 +15,9 @@ from playwright.sync_api import sync_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 QR_JS = os.path.join(ROOT, "static", "qrcode.min.js")
-POSTER = os.path.join(ROOT, "宣传海报", "ARENA海报-竖版.html")
-PREVIEW = os.path.join(ROOT, "宣传海报", "ARENA海报-竖版_预览.png")
+POSTER_DIR = os.path.join(ROOT, "宣传海报")
+# 处理目录下所有海报 html（含占位 <!--QR--> 的才注入二维码；都会重新出预览图）
+POSTERS = ["ARENA海报-竖版.html", "ARENA海报-功能全景.html", "ARENA海报-五智能体.html"]
 URL = "https://cp-tutor-agent.onrender.com"
 QUIET = 2          # 二维码静区（模块数）
 DARK = "#1b1712"   # 暖墨色码点，保证扫描对比度
@@ -48,6 +49,24 @@ def build_svg(n, grid):
         vb, -QUIET, -QUIET, n + 2 * QUIET, n + 2 * QUIET, "".join(parts), DARK)
 
 
+def process(page, svg, name):
+    poster = os.path.join(POSTER_DIR, name)
+    preview = os.path.splitext(poster)[0] + "_预览.png"
+    print("--", name)
+    html = open(poster, "r", encoding="utf-8").read()
+    # 把占位（<!--QR--> + fallback）整段替换为生成的 SVG；已烘焙过则跳过、保留现有
+    html2 = re.sub(r"<!--QR-->.*?</div>\s*(?=</div>)", svg, html, count=1, flags=re.S)
+    if html2 == html:
+        print("   (无占位符，保留现有二维码)")
+    else:
+        open(poster, "w", encoding="utf-8").write(html2)
+        print("   ✅ 二维码已注入")
+    page.goto("file:///" + poster.replace("\\", "/"), wait_until="networkidle", timeout=60000)
+    page.wait_for_timeout(1800)   # 等 Google 字体加载
+    page.query_selector(".poster").screenshot(path=preview)
+    print("   📸", os.path.basename(preview))
+
+
 def main():
     with sync_playwright() as p:
         b = p.chromium.launch(headless=True)
@@ -56,23 +75,10 @@ def main():
 
         m = qr_matrix(page)
         svg = build_svg(m["n"], m["g"])
-        print("  二维码模块数 =", m["n"], "x", m["n"])
+        print("二维码模块数 =", m["n"], "x", m["n"])
 
-        html = open(POSTER, "r", encoding="utf-8").read()
-        # 把占位（<!--QR--> + fallback）整段替换为生成的 SVG
-        html2 = re.sub(r"<!--QR-->.*?</div>\s*(?=</div>)", svg, html, count=1, flags=re.S)
-        if html2 == html:
-            print("  !! 未找到二维码占位符，跳过注入")
-        else:
-            open(POSTER, "w", encoding="utf-8").write(html2)
-            print("  ✅ 二维码已注入海报")
-
-        # 截高清预览
-        page.goto("file:///" + POSTER.replace("\\", "/"), wait_until="networkidle", timeout=60000)
-        page.wait_for_timeout(1800)   # 等 Google 字体加载
-        el = page.query_selector(".poster")
-        el.screenshot(path=PREVIEW)
-        print("  📸 预览：", PREVIEW)
+        for name in POSTERS:
+            process(page, svg, name)
 
         ctx.close(); b.close()
 

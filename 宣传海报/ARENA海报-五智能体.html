@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ARENA 宣传海报 · 五智能体</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ARENA 宣传海报 · 五智能体（竖版 1242×2208）
+   ★ 改文案：改 <body> 文字；改配色：改 :root；导出：浏览器 Ctrl+P 存 PDF 或截图
+   ============================================================ */
+:root{
+  --paper:#FCF6EA; --paper2:#F6ECD8; --ink:#2E2A22; --ink-soft:#7A7060;
+  --orange:#E8853A; --orange-deep:#CF6A1E; --teal:#1F6F66; --teal-deep:#134A43;
+  --gold:#C79A3E; --line:#E7DBC2;
+  --serif:"Noto Serif SC","Source Han Serif SC","Songti SC",Georgia,serif;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  --mono:"JetBrains Mono","Cascadia Code","SF Mono",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#d8cdb4}
+.poster{position:relative;width:1242px;height:2208px;margin:0 auto;overflow:hidden;
+  background:
+    radial-gradient(1050px 720px at 18% 2%, rgba(232,133,58,.20), transparent 56%),
+    radial-gradient(900px 640px at 96% 42%, rgba(31,111,102,.12), transparent 60%),
+    var(--paper);
+  color:var(--ink);font-family:var(--sans);padding:88px 92px 72px;display:flex;flex-direction:column}
+.sun{position:absolute;top:-160px;left:-150px;width:600px;height:600px;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%, rgba(232,133,58,.30), rgba(232,133,58,.08) 46%, transparent 70%);
+  pointer-events:none}
+
+.eyebrow{font-family:var(--mono);font-size:25px;letter-spacing:.04em;color:var(--teal);
+  display:flex;align-items:center;gap:13px;margin-bottom:26px}
+.eyebrow .dot{width:11px;height:11px;border-radius:50%;background:var(--orange);box-shadow:0 0 0 6px rgba(232,133,58,.18)}
+.eyebrow .live{color:var(--ink-soft)}
+
+.wordmark{font-family:var(--serif);font-weight:900;font-size:84px;line-height:.9;letter-spacing:.05em;display:inline-block}
+.wordmark .sub{font-family:var(--sans);font-weight:500;font-size:27px;color:var(--ink-soft);letter-spacing:.26em;margin-left:6px}
+
+/* 痛点大标 */
+.hook{font-family:var(--serif);font-weight:900;font-size:98px;line-height:1.1;margin-top:50px;letter-spacing:.01em}
+.hook .strike{position:relative;color:var(--ink-soft)}
+.hook .strike::after{content:"";position:absolute;left:-4px;right:-4px;top:54%;height:7px;
+  background:var(--orange);border-radius:4px;transform:rotate(-2deg)}
+.hook .turn{color:var(--teal)}
+.lead{font-size:33px;line-height:1.6;color:var(--ink-soft);margin-top:26px;max-width:1000px}
+.lead b{color:var(--ink)}
+
+/* 五智能体名片 */
+.team{margin-top:44px}
+.team-h{font-family:var(--mono);font-size:24px;color:var(--ink-soft);margin-bottom:18px;
+  display:flex;align-items:center;gap:12px}
+.team-h::before{content:"";width:34px;height:3px;background:var(--teal);border-radius:2px}
+.agent{display:flex;align-items:center;gap:24px;padding:30px 0;border-bottom:1.5px solid var(--line)}
+.agent:last-child{border-bottom:none}
+.agent .av{flex:0 0 auto;width:86px;height:86px;border-radius:22px;display:grid;place-items:center;font-size:42px;
+  background:rgba(31,111,102,.10);color:var(--teal);border:1.5px solid rgba(31,111,102,.24)}
+.agent:nth-child(odd) .av{background:rgba(232,133,58,.12);color:var(--orange-deep);border-color:rgba(232,133,58,.28)}
+.agent .nm{font-family:var(--serif);font-weight:700;font-size:42px;line-height:1.1}
+.agent .ro{font-size:28px;color:var(--ink-soft);margin-top:7px}
+.agent .ro b{color:var(--orange-deep);font-weight:600}
+
+/* 收尾标语 */
+.closing{margin-top:34px;font-family:var(--serif);font-weight:700;font-size:46px;line-height:1.35;
+  color:var(--ink);border-left:7px solid var(--teal);padding-left:24px}
+.closing em{color:var(--teal);font-style:normal}
+
+/* CTA + 二维码 */
+.cta{margin-top:auto;padding-top:30px;display:flex;align-items:center;justify-content:space-between;gap:36px}
+.cta-text .k{font-family:var(--serif);font-weight:700;font-size:50px;line-height:1.2}
+.cta-text .k em{color:var(--orange-deep);font-style:normal}
+.cta-text .u{font-family:var(--mono);font-size:33px;color:var(--teal);margin-top:16px}
+.cta-text .note{font-size:24px;color:var(--ink-soft);margin-top:11px}
+.qr{flex:0 0 auto;width:256px;height:256px;background:#fff;border-radius:18px;padding:18px;
+  border:1.5px solid var(--line);box-shadow:0 16px 40px rgba(46,42,34,.12)}
+.qr svg{width:100%;height:100%;display:block}
+.qr-fallback{width:100%;height:100%;display:grid;place-items:center;color:var(--ink-soft);
+  font-family:var(--mono);font-size:20px;text-align:center;border:2px dashed var(--line);border-radius:10px}
+
+.foot{margin-top:26px;font-family:var(--mono);font-size:22px;color:var(--ink-soft);
+  display:flex;justify-content:space-between;align-items:center;gap:16px;border-top:1.5px solid var(--line);padding-top:22px}
+.foot .gh{color:var(--teal)}
+.foot .gh b{color:var(--orange-deep);font-weight:700;margin-right:8px}
+</style>
+</head>
+<body>
+<div class="poster">
+  <div class="sun"></div>
+
+  <div class="eyebrow"><span class="dot"></span><span>// 算法竞赛 · AI 陪练</span><span class="live">● 公测进行中</span></div>
+  <div class="wordmark">ARENA<span class="sub">算法竞赛辅导智能体</span></div>
+
+  <h1 class="hook">刷题，<br>不该<span class="strike">一个人</span>硬扛。</h1>
+  <p class="lead">卡题没人问、判错说不清、思路全靠自己磕？<br><b>ARENA 给你一支 AI 陪练团队</b>，从读题到 <span style="color:var(--teal);font-weight:700">Accepted</span> 全程在场。</p>
+
+  <div class="team">
+    <div class="team-h">your team · 你的智能体战队</div>
+    <div class="agent"><span class="av">🔍</span><div><div class="nm">分析师</div><div class="ro">拆解题意、定位考点，给出<b>解题规划</b></div></div></div>
+    <div class="agent"><span class="av">🎓</span><div><div class="nm">苏格拉底导师</div><div class="ro">不直接给答案，<b>一步步把你问通</b></div></div></div>
+    <div class="agent"><span class="av">⚖️</span><div><div class="nm">判题官</div><div class="ro">双轨判题逐用例校验，<b>没标程也能抓反例</b></div></div></div>
+    <div class="agent"><span class="av">🐞</span><div><div class="nm">调试侠</div><div class="ro">思考→运行→观察，<b>自动帮你揪出 Bug</b></div></div></div>
+    <div class="agent"><span class="av">✍️</span><div><div class="nm">审阅官</div><div class="ro">行内批注 + 修订建议，<b>把代码改漂亮</b></div></div></div>
+  </div>
+
+  <div class="closing">五位陪练各司其职，<br>把"一个人刷题"变成<em>"被带着练通"</em>。</div>
+
+  <div class="cta">
+    <div class="cta-text">
+      <div class="k">打开网址，<em>免登录</em>就能开练</div>
+      <div class="u">cp-tutor-agent.onrender.com</div>
+      <div class="note">推荐使用电脑浏览器访问体验 · 移动端适配中</div>
+    </div>
+    <div class="qr" id="qr"><svg viewBox="-2 -2 33 33" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><rect x="-2" y="-2" width="33" height="33" fill="#ffffff"/><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM9 0h1v1h-1zM11 0h1v1h-1zM12 0h1v1h-1zM14 0h1v1h-1zM17 0h1v1h-1zM18 0h1v1h-1zM19 0h1v1h-1zM20 0h1v1h-1zM22 0h1v1h-1zM23 0h1v1h-1zM24 0h1v1h-1zM25 0h1v1h-1zM26 0h1v1h-1zM27 0h1v1h-1zM28 0h1v1h-1zM0 1h1v1h-1zM6 1h1v1h-1zM8 1h1v1h-1zM9 1h1v1h-1zM12 1h1v1h-1zM13 1h1v1h-1zM18 1h1v1h-1zM19 1h1v1h-1zM22 1h1v1h-1zM28 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM15 2h1v1h-1zM18 2h1v1h-1zM22 2h1v1h-1zM24 2h1v1h-1zM25 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM9 3h1v1h-1zM12 3h1v1h-1zM13 3h1v1h-1zM18 3h1v1h-1zM19 3h1v1h-1zM20 3h1v1h-1zM22 3h1v1h-1zM24 3h1v1h-1zM25 3h1v1h-1zM26 3h1v1h-1zM28 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM11 4h1v1h-1zM13 4h1v1h-1zM16 4h1v1h-1zM17 4h1v1h-1zM18 4h1v1h-1zM19 4h1v1h-1zM22 4h1v1h-1zM24 4h1v1h-1zM25 4h1v1h-1zM26 4h1v1h-1zM28 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM14 5h1v1h-1zM15 5h1v1h-1zM16 5h1v1h-1zM18 5h1v1h-1zM19 5h1v1h-1zM22 5h1v1h-1zM28 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h1v1h-1zM23 6h1v1h-1zM24 6h1v1h-1zM25 6h1v1h-1zM26 6h1v1h-1zM27 6h1v1h-1zM28 6h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM15 7h1v1h-1zM16 7h1v1h-1zM17 7h1v1h-1zM18 7h1v1h-1zM20 7h1v1h-1zM0 8h1v1h-1zM2 8h1v1h-1zM4 8h1v1h-1zM6 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM15 8h1v1h-1zM16 8h1v1h-1zM17 8h1v1h-1zM19 8h1v1h-1zM20 8h1v1h-1zM24 8h1v1h-1zM27 8h1v1h-1zM1 9h1v1h-1zM2 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM13 9h1v1h-1zM16 9h1v1h-1zM20 9h1v1h-1zM22 9h1v1h-1zM25 9h1v1h-1zM28 9h1v1h-1zM0 10h1v1h-1zM1 10h1v1h-1zM2 10h1v1h-1zM3 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM14 10h1v1h-1zM17 10h1v1h-1zM21 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM26 10h1v1h-1zM27 10h1v1h-1zM28 10h1v1h-1zM0 11h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM16 11h1v1h-1zM17 11h1v1h-1zM19 11h1v1h-1zM20 11h1v1h-1zM27 11h1v1h-1zM0 12h1v1h-1zM2 12h1v1h-1zM4 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM9 12h1v1h-1zM11 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM16 12h1v1h-1zM17 12h1v1h-1zM20 12h1v1h-1zM21 12h1v1h-1zM22 12h1v1h-1zM23 12h1v1h-1zM25 12h1v1h-1zM27 12h1v1h-1zM28 12h1v1h-1zM1 13h1v1h-1zM3 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM14 13h1v1h-1zM16 13h1v1h-1zM17 13h1v1h-1zM18 13h1v1h-1zM20 13h1v1h-1zM22 13h1v1h-1zM25 13h1v1h-1zM28 13h1v1h-1zM1 14h1v1h-1zM2 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM10 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM17 14h1v1h-1zM18 14h1v1h-1zM21 14h1v1h-1zM22 14h1v1h-1zM23 14h1v1h-1zM24 14h1v1h-1zM25 14h1v1h-1zM27 14h1v1h-1zM28 14h1v1h-1zM2 15h1v1h-1zM4 15h1v1h-1zM5 15h1v1h-1zM9 15h1v1h-1zM17 15h1v1h-1zM20 15h1v1h-1zM21 15h1v1h-1zM24 15h1v1h-1zM25 15h1v1h-1zM27 15h1v1h-1zM1 16h1v1h-1zM2 16h1v1h-1zM6 16h1v1h-1zM7 16h1v1h-1zM8 16h1v1h-1zM9 16h1v1h-1zM10 16h1v1h-1zM11 16h1v1h-1zM16 16h1v1h-1zM17 16h1v1h-1zM20 16h1v1h-1zM21 16h1v1h-1zM22 16h1v1h-1zM25 16h1v1h-1zM27 16h1v1h-1zM28 16h1v1h-1zM5 17h1v1h-1zM7 17h1v1h-1zM10 17h1v1h-1zM13 17h1v1h-1zM16 17h1v1h-1zM17 17h1v1h-1zM20 17h1v1h-1zM21 17h1v1h-1zM22 17h1v1h-1zM23 17h1v1h-1zM25 17h1v1h-1zM26 17h1v1h-1zM28 17h1v1h-1zM0 18h1v1h-1zM3 18h1v1h-1zM6 18h1v1h-1zM7 18h1v1h-1zM8 18h1v1h-1zM10 18h1v1h-1zM11 18h1v1h-1zM12 18h1v1h-1zM14 18h1v1h-1zM16 18h1v1h-1zM21 18h1v1h-1zM24 18h1v1h-1zM27 18h1v1h-1zM28 18h1v1h-1zM1 19h1v1h-1zM3 19h1v1h-1zM8 19h1v1h-1zM10 19h1v1h-1zM13 19h1v1h-1zM14 19h1v1h-1zM16 19h1v1h-1zM17 19h1v1h-1zM18 19h1v1h-1zM19 19h1v1h-1zM22 19h1v1h-1zM23 19h1v1h-1zM25 19h1v1h-1zM27 19h1v1h-1zM0 20h1v1h-1zM3 20h1v1h-1zM5 20h1v1h-1zM6 20h1v1h-1zM8 20h1v1h-1zM9 20h1v1h-1zM10 20h1v1h-1zM11 20h1v1h-1zM14 20h1v1h-1zM15 20h1v1h-1zM16 20h1v1h-1zM17 20h1v1h-1zM20 20h1v1h-1zM21 20h1v1h-1zM22 20h1v1h-1zM23 20h1v1h-1zM24 20h1v1h-1zM8 21h1v1h-1zM10 21h1v1h-1zM11 21h1v1h-1zM14 21h1v1h-1zM19 21h1v1h-1zM20 21h1v1h-1zM24 21h1v1h-1zM26 21h1v1h-1zM27 21h1v1h-1zM28 21h1v1h-1zM0 22h1v1h-1zM1 22h1v1h-1zM2 22h1v1h-1zM3 22h1v1h-1zM4 22h1v1h-1zM5 22h1v1h-1zM6 22h1v1h-1zM9 22h1v1h-1zM13 22h1v1h-1zM16 22h1v1h-1zM17 22h1v1h-1zM19 22h1v1h-1zM20 22h1v1h-1zM22 22h1v1h-1zM24 22h1v1h-1zM25 22h1v1h-1zM27 22h1v1h-1zM28 22h1v1h-1zM0 23h1v1h-1zM6 23h1v1h-1zM9 23h1v1h-1zM17 23h1v1h-1zM20 23h1v1h-1zM24 23h1v1h-1zM25 23h1v1h-1zM28 23h1v1h-1zM0 24h1v1h-1zM2 24h1v1h-1zM3 24h1v1h-1zM4 24h1v1h-1zM6 24h1v1h-1zM8 24h1v1h-1zM10 24h1v1h-1zM17 24h1v1h-1zM20 24h1v1h-1zM21 24h1v1h-1zM22 24h1v1h-1zM23 24h1v1h-1zM24 24h1v1h-1zM28 24h1v1h-1zM0 25h1v1h-1zM2 25h1v1h-1zM3 25h1v1h-1zM4 25h1v1h-1zM6 25h1v1h-1zM11 25h1v1h-1zM12 25h1v1h-1zM16 25h1v1h-1zM17 25h1v1h-1zM24 25h1v1h-1zM26 25h1v1h-1zM27 25h1v1h-1zM28 25h1v1h-1zM0 26h1v1h-1zM2 26h1v1h-1zM3 26h1v1h-1zM4 26h1v1h-1zM6 26h1v1h-1zM8 26h1v1h-1zM9 26h1v1h-1zM10 26h1v1h-1zM11 26h1v1h-1zM12 26h1v1h-1zM13 26h1v1h-1zM19 26h1v1h-1zM21 26h1v1h-1zM23 26h1v1h-1zM24 26h1v1h-1zM25 26h1v1h-1zM28 26h1v1h-1zM0 27h1v1h-1zM6 27h1v1h-1zM13 27h1v1h-1zM14 27h1v1h-1zM15 27h1v1h-1zM16 27h1v1h-1zM17 27h1v1h-1zM19 27h1v1h-1zM20 27h1v1h-1zM21 27h1v1h-1zM24 27h1v1h-1zM27 27h1v1h-1zM0 28h1v1h-1zM1 28h1v1h-1zM2 28h1v1h-1zM3 28h1v1h-1zM4 28h1v1h-1zM5 28h1v1h-1zM6 28h1v1h-1zM8 28h1v1h-1zM9 28h1v1h-1zM10 28h1v1h-1zM12 28h1v1h-1zM14 28h1v1h-1zM16 28h1v1h-1zM17 28h1v1h-1zM20 28h1v1h-1zM24 28h1v1h-1zM27 28h1v1h-1zM28 28h1v1h-1z" fill="#1b1712"/></svg></div>
+  </div>
+
+  <div class="foot">
+    <span>© 2026 ARENA · 算法竞赛辅导智能体</span>
+    <span class="gh"><b>GitHub</b>github.com/ProZhang-Gr/cp-tutor-agent</span>
+  </div>
+</div>
+</body>
+</html>
