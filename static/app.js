@@ -1149,9 +1149,11 @@ function resetReportArea() {
           ? `<span class="empty-hint">${en ? "The AI daily report is a Pro feature — watch an ad for free credits or top up to unlock" : "每日 AI 学习日报是 Pro 功能 — 看广告免费得算力点或充值即可解锁"}</span>`
           : `<span class="empty-hint">${t("dash.report.empty")}</span>`);
   }
-  const dl = $("#btn-dl-report"), sh = $("#btn-share-report");
+  const dl = $("#btn-dl-report"), sh = $("#btn-share-report"), sp = $("#btn-speak-report");
   if (dl) dl.classList.add("hidden");
   if (sh) sh.classList.add("hidden");
+  if (sp) sp.classList.add("hidden");
+  stopSpeak();
 }
 async function genReport() {
   // 先按登录态做前置引导，避免请求落到后端再回弹「请先登录」造成观感上的矛盾
@@ -1172,8 +1174,53 @@ async function genReport() {
       `<div class="r-narr">${marked.parse(data.narrative || "")}</div>`;
     $("#btn-dl-report").classList.remove("hidden");
     $("#btn-share-report").classList.remove("hidden");
+    stopSpeak();                                      // 重新生成时先停掉旧的播报
+    $("#btn-speak-report").classList.remove("hidden");
   } catch (e) { toast("生成失败"); }
   finally { btn.disabled = false; btn.textContent = "生成今日报告"; }
+}
+
+/* ---------------- 学习日报语音播报（浏览器原生 TTS，用户主动触发） ---------------- */
+// 把日报的 Markdown 叙述还原成适合朗读的纯文本：去掉符号、表情、链接外壳，保留语义
+function reportSpeechText(md) {
+  let s = String(md || "");
+  s = s.replace(/```[\s\S]*?```/g, " ");            // 代码块
+  s = s.replace(/`([^`]+)`/g, "$1");                // 行内代码
+  s = s.replace(/!\[[^\]]*\]\([^)]*\)/g, " ");      // 图片
+  s = s.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");    // 链接保留文字
+  s = s.replace(/[#>*_~`|-]/g, " ");                // Markdown 标记符
+  s = s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, " "); // emoji/符号
+  s = s.replace(/\s+/g, " ").trim();
+  return s;
+}
+function setSpeakBtn(active) {
+  const b = $("#btn-speak-report");
+  if (b) b.textContent = t(active ? "dash.speaking" : "dash.speak");
+}
+function stopSpeak() {
+  if (window.speechSynthesis && speechSynthesis.speaking) speechSynthesis.cancel();
+  setSpeakBtn(false);
+}
+function speakReport() {
+  if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+    return toast(t("dash.speak.unsupported"));
+  }
+  if (speechSynthesis.speaking) { stopSpeak(); return; }   // 再次点击 = 停止
+  if (!lastReport) return toast(t("dash.speak.unsupported"));
+  const txt = reportSpeechText(lastReport.narrative);
+  if (!txt) return;
+  const u = new SpeechSynthesisUtterance(txt);
+  u.lang = isEn() ? "en-US" : "zh-CN";
+  u.rate = 1; u.pitch = 1;
+  // 优先挑一个与语言匹配的本地语音
+  const voices = speechSynthesis.getVoices();
+  const v = voices.find(x => x.lang && x.lang.toLowerCase().startsWith(u.lang.slice(0, 2)));
+  if (v) u.voice = v;
+  u.onend = () => setSpeakBtn(false);
+  u.onerror = () => setSpeakBtn(false);
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+  setSpeakBtn(true);
 }
 
 /* ---------------- 分享卡片（客户端 Canvas 生成，平台无关） ---------------- */
@@ -1734,6 +1781,7 @@ function bind() {
   $$(".panel-head").forEach(h => h.onclick = () => h.closest(".panel").classList.toggle("collapsed"));
   $("#btn-ask-tutor").onclick = askTutorAbout;
   $("#btn-gen-report").onclick = genReport;
+  $("#btn-speak-report").onclick = speakReport;
   $("#btn-dl-report").onclick = downloadReport;
   $("#btn-share-report").onclick = openShareCard;
   $("#share-close").onclick = closeShareCard;
