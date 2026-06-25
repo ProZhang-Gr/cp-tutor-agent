@@ -42,6 +42,16 @@ def build_profile(user_id):
             err[k] = err.get(k, 0) + 1
     common_errors = [k for k, _ in sorted(err.items(), key=lambda x: -x[1])[:2]]
 
+    # 近期已攻克题目（按时间倒序、去重），供对话保持"记得学生做过什么"的连贯性
+    recent_solved = []
+    seen = set()
+    for r in sorted(rows, key=lambda x: -x.ts):
+        if r.passed and r.problem_title and r.problem_title not in seen:
+            seen.add(r.problem_title)
+            recent_solved.append(r.problem_title)
+        if len(recent_solved) >= 5:
+            break
+
     # 档位
     if total < 5 or rate < 40:
         tier = "novice"
@@ -59,7 +69,8 @@ def build_profile(user_id):
         "tier": tier, "tier_label": label,
         "total": total, "solved": solved, "solve_rate": rate,
         "weak_types": weak, "strong_types": strong,
-        "common_errors": common_errors, "summary": summary,
+        "common_errors": common_errors, "recent_solved": recent_solved,
+        "summary": summary,
         "is_empty": False,
     }
 
@@ -67,8 +78,8 @@ def build_profile(user_id):
 def _empty():
     return {"tier": "novice", "tier_label": "新手", "total": 0, "solved": 0,
             "solve_rate": 0, "weak_types": [], "strong_types": [],
-            "common_errors": [], "summary": "暂无答题数据，按通用策略辅导",
-            "is_empty": True}
+            "common_errors": [], "recent_solved": [],
+            "summary": "暂无答题数据，按通用策略辅导", "is_empty": True}
 
 
 _DIRECTIVE = {
@@ -89,4 +100,10 @@ def build_directive(user_id):
     d = _DIRECTIVE[p["tier"]]
     if p["weak_types"]:
         d += "该生在【%s】题型上偏弱，可多加引导、必要时多举一例。" % "、".join(p["weak_types"][:3])
+    # 注入具体上下文：让导师"记得"学生近期攻克过哪些题、常在哪类错误上栽跟头，
+    # 既能顺势类比已掌握的题，也能针对性提醒其高频失误，使多轮辅导更连贯。
+    if p.get("recent_solved"):
+        d += "该生近期已攻克：%s，可在讲解时类比这些做过的题。" % "、".join(p["recent_solved"][:4])
+    if p.get("common_errors"):
+        d += "该生高频失误类型为 %s，回答时可有意识地提醒其规避。" % "、".join(p["common_errors"])
     return d

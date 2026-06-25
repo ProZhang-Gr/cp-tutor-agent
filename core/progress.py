@@ -89,6 +89,29 @@ def stats(user_id=None):
             dk = datetime.fromtimestamp(r.ts).strftime("%Y-%m-%d")
             daily[dk] = daily.get(dk, 0) + 1
 
+        # 成长曲线：按日聚合（升序），输出累计攻克题数 + 当日平均分 + 当日通过率，
+        # 供前端画"学习曲线"折线，直观看出成长轨迹（最近 30 个有数据的日子）。
+        per_day = {}
+        for r in rows:
+            dk = datetime.fromtimestamp(r.ts).strftime("%Y-%m-%d")
+            d = per_day.setdefault(dk, {"attempts": 0, "passed": 0, "score_sum": 0})
+            d["attempts"] += 1
+            d["passed"] += 1 if r.passed else 0
+            d["score_sum"] += r.score
+        growth = []
+        cum_solved = 0
+        for dk in sorted(per_day.keys()):
+            d = per_day[dk]
+            cum_solved += d["passed"]
+            growth.append({
+                "date": dk,
+                "solved_cum": cum_solved,
+                "attempts": d["attempts"],
+                "avg_score": round(d["score_sum"] / d["attempts"]) if d["attempts"] else 0,
+                "accuracy": round(100 * d["passed"] / d["attempts"]) if d["attempts"] else 0,
+            })
+        growth = growth[-30:]
+
         weak = sorted([m for m in type_mastery if m["rate"] < 100],
                       key=lambda x: (x["rate"], -x["count"]))[:3]
 
@@ -104,6 +127,7 @@ def stats(user_id=None):
         "difficulty_dist": by_diff, "error_dist": err,
         "weak_points": weak, "recent": recent,
         "daily_activity": daily, "active_days": len(daily),
+        "growth": growth,
     }
 
 

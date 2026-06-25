@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from config import settings
 from core import (admin, agents, auth, billing, community, guard, profile, progress,
-                  report, sandbox, support, telemetry)
+                  report, sandbox, studyplan, support, telemetry, verify)
 from core.llm import get_llm
 from core.rag import get_bank
 from core.debugger import run_debug_stream
@@ -201,6 +201,7 @@ class ReviewCodeReq(BaseModel):
     problem: str = ""
     code: str
     language: str = "python"
+    problem_id: str = ""   # 给了题目则用其真值/样例验证修订代码
 
 
 class DebugReq(BaseModel):
@@ -208,6 +209,12 @@ class DebugReq(BaseModel):
     code: str
     counterexample: dict = {}  # {input, expected, actual, reason}
     language: str = "python"
+
+
+class VerifyReq(BaseModel):
+    code: str
+    language: str = "python"
+    problem_id: str = ""   # 给了题目则用其真值/样例验证，否则只验证能否正常编译运行
 
 
 class AuthReq(BaseModel):
@@ -600,6 +607,14 @@ def review_code(req: ReviewCodeReq, request: Request, arena_session: str = Cooki
         return blocked
     try:
         result = agents.review_for_edit(req.problem, req.code, req.language)
+        # 可信度护栏：AI 给了修订代码就先过一遍静态检查 + 沙箱实跑，
+        # 附"已验证/未验证"标识，避免错误代码被当成正确答案直接交给学生。
+        if result.get("has_fix") and result.get("proposed_code"):
+            try:
+                result["verification"] = verify.verify_code(
+                    result["proposed_code"], req.language, req.problem_id or None)
+            except Exception:
+                result["verification"] = None
         return JSONResponse(result)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -624,6 +639,29 @@ def run_code(req: RunReq, request: Request):
 @app.get("/api/stats")
 def get_stats(arena_session: str = Cookie(default=None)):
     return progress.stats(_uid(arena_session))
+
+
+# ------------------------- 个性化训练计划 -------------------------
+@app.get("/api/study-plan")
+def study_plan(request: Request, arena_session: str = Cookie(default=None)):
+    """据画像挑题生成"今日训练计划"。确定性核心免费可用，仅按 IP 限流防刷。"""
+    ok, msg = guard.rate_limit_only(_ip(request))
+    if not ok:
+        return JSONResponse({"error": msg}, status_code=429)
+    return studyplan.build_plan(_uid(arena_session))
+
+
+# ------------------------- 代码可信度验证（静态检查 + 沙箱实跑） -------------------------
+@app.post("/api/verify")
+def verify_code(req: VerifyReq, request: Request):
+    """对一段代码做静态检查 + 沙箱实跑，回传"已验证/未验证"可信标识。"""
+    ok, msg = guard.rate_limit_only(_ip(request))
+    if not ok:
+        return JSONResponse({"error": msg}, status_code=429)
+    if len(req.code) > settings.MAX_CODE_CHARS:
+        return JSONResponse({"error": "代码过长"}, status_code=400)
+    lang = req.language if req.language in settings.SUPPORTED_LANGS else "python"
+    return verify.verify_code(req.code, lang, req.problem_id or None)
 
 
 # ------------------------- 每日报告（Pro） -------------------------

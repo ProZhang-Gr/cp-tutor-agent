@@ -749,6 +749,7 @@ async function requestReview() {
       body: JSON.stringify({
         problem: $("#problem-input").value.trim(),
         code, language: $("#lang-select").value,
+        problem_id: currentProblemId || "",
       }),
     });
     const data = await r.json();
@@ -786,6 +787,7 @@ function renderReviewResult(data) {
     reviewFix = { code: data.proposed_code, explain: data.fix_explanation || "" };
     html += `<div class="rv-fix">
         <div class="rv-fix-txt">🔧 导师准备了一份修订版${data.fix_explanation ? "：" + esc(data.fix_explanation) : ""}</div>
+        ${verifyBadgeHtml(data.verification)}
         <button class="btn btn-primary btn-block" id="rv-view-diff">查看修订对比 · 决定是否应用</button>
       </div>`;
   } else { reviewFix = null; }
@@ -793,6 +795,33 @@ function renderReviewResult(data) {
   $$("#review-panel .rv-ann").forEach(b => b.onclick = () => jumpToLine(parseInt(b.dataset.line)));
   const clr = $("#rv-clear"); if (clr) clr.onclick = clearReviewDecorations;
   const vd = $("#rv-view-diff"); if (vd) vd.onclick = openDiffModal;
+}
+
+// 可信度徽章：把后端 /verify 的结果渲染成"已验证/未验证"标识 + 校验明细
+function verifyBadgeHtml(v) {
+  if (!v) return "";
+  const en = isEn();
+  const TXT = {
+    verified: en ? "Sandbox-verified" : "已沙箱验证",
+    ran: en ? "Runs OK (not fully verified)" : "可运行 · 未充分验证",
+    failed: en ? "Verification failed" : "验证未通过",
+    error: en ? "Cannot run" : "无法运行",
+  };
+  const ICON = { verified: "✓", ran: "≈", failed: "✗", error: "⚠" };
+  let cx = "";
+  const ce = v.counterexample;
+  if (v.level === "failed" && ce && (ce.input != null)) {
+    cx = `<div class="vb-cx">${en ? "Counterexample" : "反例"}: in=<code>${esc(String(ce.input).slice(0, 60))}</code> ` +
+         `exp=<code>${esc(String(ce.expected).slice(0, 40))}</code> got=<code>${esc(String(ce.actual).slice(0, 40))}</code></div>`;
+  }
+  const checks = (v.checks || []).map(c =>
+    `<li class="${c.ok ? "vb-ok" : "vb-no"}">${c.ok ? "✓" : "✗"} ${esc(c.name)}：${esc(c.detail)}</li>`).join("");
+  return `<div class="verify-badge vb-${v.level}">
+      <div class="vb-head"><span class="vb-mark">${ICON[v.level]}</span>
+        <span class="vb-label">${TXT[v.level] || v.label}</span>
+        <span class="vb-trust">${en ? "trust" : "可信度"} ${v.trust}</span></div>
+      <ul class="vb-checks">${checks}</ul>${cx}
+    </div>`;
 }
 
 function jumpToLine(line) {
@@ -1385,10 +1414,88 @@ async function loadDashboard() {
     <td><span class="res-pill ${r.error_kind}">${r.error_kind}</span></td><td>${r.score}</td>
     <td class="recent-time">${r.ts ? fmtSubTime(r.ts) : "—"}</td></tr>`).join("")
     : `<tr><td colspan='5' class='empty-hint'>${isEn() ? "No submissions yet" : "还没有提交记录"}</td></tr>`;
+  // 学习成长曲线
+  renderGrowthChart(s.growth || []);
   // 新增三块：用户画像 / 学习投入 / 成就证书
   renderProfilePanel();
   renderAchievements();
   loadEngagementCard();
+  loadStudyPlan();
+}
+
+// 学习成长曲线：累计攻克题数（左轴折线）+ 每日通过率（右轴折线）
+function renderGrowthChart(growth) {
+  const en = isEn();
+  if (!growth.length) {
+    drawChart("growth", "chart-growth", {
+      type: "line",
+      data: { labels: [en ? "No data" : "暂无数据"], datasets: [{ data: [0], borderColor: "#E1D8C6" }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { color: "#9A8F7A" } }, x: { ticks: { color: "#9A8F7A" } } } },
+    });
+    return;
+  }
+  const labels = growth.map(g => g.date.slice(5));   // 月-日
+  drawChart("growth", "chart-growth", {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: en ? "Solved (cumulative)" : "累计攻克", data: growth.map(g => g.solved_cum),
+          borderColor: "#1F6F66", backgroundColor: "rgba(31,111,102,.12)", fill: true,
+          tension: .3, yAxisID: "y", pointRadius: 2 },
+        { label: en ? "Daily accuracy %" : "当日通过率%", data: growth.map(g => g.accuracy),
+          borderColor: "#C2922E", backgroundColor: "transparent",
+          tension: .3, yAxisID: "y1", pointRadius: 2, borderDash: [5, 4] },
+      ],
+    },
+    options: {
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { labels: { color: "#6E6657", font: { family: "IBM Plex Sans" } } } },
+      scales: {
+        x: { ticks: { color: "#9A8F7A", maxTicksLimit: 8 }, grid: { color: "rgba(0,0,0,.04)" } },
+        y: { position: "left", beginAtZero: true, ticks: { color: "#1F6F66", precision: 0 }, grid: { color: "rgba(0,0,0,.04)" },
+             title: { display: true, text: en ? "Solved" : "累计攻克", color: "#1F6F66" } },
+        y1: { position: "right", beginAtZero: true, max: 100, ticks: { color: "#C2922E" }, grid: { drawOnChartArea: false },
+              title: { display: true, text: en ? "Accuracy %" : "通过率%", color: "#C2922E" } },
+      },
+    },
+  });
+}
+
+/* ---------------- 个性化训练计划 ---------------- */
+async function loadStudyPlan() {
+  const body = $("#plan-body");
+  if (!body) return;
+  const en = isEn();
+  try {
+    const p = await fetch("/api/study-plan").then(r => r.json());
+    if (p.error) { body.innerHTML = `<div class="empty-hint">${esc(p.error)}</div>`; return; }
+    const chips = (p.focus_types || []).map(t => `<span class="plan-chip">${esc(t)}</span>`).join("");
+    const items = (p.items || []).map((it, i) => `
+      <button type="button" class="plan-item" data-pid="${esc(it.id)}" title="${en ? "Open this problem" : "去做这道题"}">
+        <span class="plan-idx">${i + 1}</span>
+        <span class="plan-it-main">
+          <span class="plan-it-title">${esc(it.title)}</span>
+          <span class="plan-it-meta"><span class="plan-it-type">${esc(it.type)}</span><span class="plan-it-diff d-${esc(it.difficulty)}">${esc(it.difficulty)}</span><span class="plan-it-reason">${esc(it.reason)}</span></span>
+        </span>
+        <span class="plan-go">→</span>
+      </button>`).join("");
+    const tip = p.review_tip ? `<div class="plan-tip">💡 ${esc(p.review_tip)}</div>` : "";
+    const narr = p.narrative ? `<div class="plan-narr">${esc(p.narrative)}</div>` : "";
+    body.innerHTML = `
+      <div class="plan-headline">${esc(p.headline)}</div>
+      <div class="plan-meta-row">
+        <span class="plan-focus">${en ? "Focus" : "主攻"}：${chips || "—"}</span>
+        <span class="plan-target">${en ? "Difficulty" : "难度"}：${esc(p.target_difficulty || "")}</span>
+      </div>
+      ${narr}
+      <div class="plan-items">${items || `<div class='empty-hint'>${en ? "No problems to recommend right now" : "暂无可推荐的题目"}</div>`}</div>
+      ${tip}`;
+    body.querySelectorAll(".plan-item").forEach(b =>
+      b.onclick = () => window.cpLoadProblem(b.dataset.pid));
+  } catch (e) {
+    body.innerHTML = `<div class="empty-hint">${en ? "Failed to load plan" : "训练计划加载失败"}</div>`;
+  }
 }
 // GitHub 风格刷题日历：近 53 周 × 7 天的贡献热力图
 function renderHeatmap(daily, activeDays) {
@@ -1635,6 +1742,7 @@ function bind() {
   $("#share-modal").onclick = (e) => { if (e.target.id === "share-modal") closeShareCard(); };
   $("#chat-input").onkeydown = (e) => { if (e.key === "Enter") sendChat(); };
   $("#btn-review").onclick = requestReview;
+  { const rp = $("#btn-refresh-plan"); if (rp) rp.onclick = loadStudyPlan; }
   // 题库左侧抽屉
   $("#pb-toggle").onclick = togglePbPanel;
   $("#pb-close").onclick = closePbPanel;
